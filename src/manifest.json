@@ -1,0 +1,276 @@
+{
+  "bundles": [
+    {
+      "name": "default",
+      "assets": []
+    },
+    {
+      "name": "card",
+      "assets": [
+        {
+          "alias": [
+            "card/card.png",
+            "card.png"
+          ],
+          "src": [
+            "card/card@0.5x.png",
+            "card/card.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/club.png",
+            "club.png"
+          ],
+          "src": [
+            "card/club@0.5x.png",
+            "card/club.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/cmtt.fnt",
+            "cmtt.fnt"
+          ],
+          "src": [
+            "card/cmtt.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/cmtt_0.png",
+            "cmtt_0.png"
+          ],
+          "src": [
+            "card/cmtt_0@0.5x.png",
+            "card/cmtt_0.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/diamond.png",
+            "diamond.png"
+          ],
+          "src": [
+            "card/diamond@0.5x.png",
+            "card/diamond.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/heart.png",
+            "heart.png"
+          ],
+          "src": [
+            "card/heart@0.5x.png",
+            "card/heart.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/spade.png",
+            "spade.png"
+          ],
+          "src": [
+            "card/spade@0.5x.png",
+            "card/spade.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "otherfonts",
+      "assets": [
+        {
+          "alias": [
+            "otherfonts/BitmapCourier.ttf",
+            "BitmapCourier.ttf"
+          ],
+          "src": [
+            "otherfonts/BitmapCourier.ttf"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-12.fnt",
+            "IBMPlexMono-Light-12.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-12.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-13.fnt",
+            "IBMPlexMono-Light-13.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-13.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-14.fnt",
+            "IBMPlexMono-Light-14.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-14.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-15.fnt",
+            "IBMPlexMono-Light-15.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-15.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-16.fnt",
+            "IBMPlexMono-Light-16.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Light/IBMPlexMono-Light-16.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-12.fnt",
+            "IBMPlexMono-Medium-12.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-12.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-13.fnt",
+            "IBMPlexMono-Medium-13.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-13.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-14.fnt",
+            "IBMPlexMono-Medium-14.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-14.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-15.fnt",
+            "IBMPlexMono-Medium-15.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-15.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-16.fnt",
+            "IBMPlexMono-Medium-16.fnt"
+          ],
+          "src": [
+            "otherfonts/IBMPlexMono-Medium/IBMPlexMono-Medium-16.fnt"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
