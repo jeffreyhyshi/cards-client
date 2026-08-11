@@ -102,8 +102,6 @@ export class Table {
         });
         // Check for others connecting to us. We are the "host"; send the current list of players at the table.
         this.myself.on("connection", (conn) => {
-            console.log("sending data: ");
-            console.log([this.myself.id, ...Array.from(this.players.keys())]);
             conn.on("open", () => {
                 conn.send({
                     tableId: this.tableId,
@@ -174,6 +172,7 @@ export class Table {
             const conn = this.myself.connect(peerId);
             conn.on("open", () => {
                 conn.on("data", this.handleData.bind(this));
+                this.players.set(conn.peer, conn);
             });
         }
     }
@@ -181,10 +180,8 @@ export class Table {
     private handleData(data: any) {
         if (isTableConnection(data)) {
             this.updateTableConnection(data);
-            console.log("updatetable")
         } else if (isCardMovement(data)) {
             this.updateCardMovement(data);
-            console.log("cardmovement")
         } else {
             console.log("unknown data")
         }
@@ -205,7 +202,8 @@ export class Table {
                 this.players.clear();
             }
             for (const peerId of data.playerIds) {
-                if (!this.players.has(peerId)) {
+                if (!this.players.has(peerId) && this.myself.id !== peerId) {
+                    // FIXME: dedup the connections you're getting... shouldn't need to re-open a connection here
                     const conn = this.myself.connect(peerId);
                     conn.on("open", () => {
                         conn.on("data", this.handleData.bind(this));
