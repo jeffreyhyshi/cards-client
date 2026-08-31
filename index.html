@@ -3,20 +3,40 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style/main.css">
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: "Helvetica", "HelveticaNeue", "Arial", sans-serif;
+        }
+    
+        h1 {
+            margin: 10px;
+            color: #FFFFFA;
+        }
+    
+        label {
+            padding: 10px;
+            color: #FFFFFA;
+            font-style: italic;
+        }
+    </style>
     <title>A virtual pack of cards</title>
 </head>
 
 <body>
     <div id="appContainer"></div>
-    <div id="myidContainer">
+    <!-- <div id="myidContainer">
         <span>My ID: </span>
         <span id="myid"></span>
     </div>
     <div id="connectContainer">
         <input name="peerid" id="peerid" type="text" />
         <button name="connect" id="connect">Connect</button>
-    </div>
+    </div> -->
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>

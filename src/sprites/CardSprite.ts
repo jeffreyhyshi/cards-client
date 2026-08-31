@@ -1,33 +1,58 @@
-import { BitmapText, Sprite, Texture } from 'pixi.js'
+import { BitmapText, FederatedPointerEvent, Sprite, Texture } from 'pixi.js'
 import { type Card, Suits } from '../models/Card';
-import type { TableEntity } from '../models/TableEntity';
-import type { Table } from '../Table';
+import type { PointerEventSprite } from './PointerEventSprite';
+import type { TableSprite } from './TableSprite';
 
-export class CardSprite extends Sprite implements TableEntity {
-    public entityId: string;
+export class CardSprite extends Sprite implements PointerEventSprite {
+    public type: "card" = "card";
+    public id: string;
     public card: Card;
 
-    private suitSprite: Sprite;
-    private rankBitmapText: BitmapText;
-
+    public draggable: boolean;
     public dragging: boolean;
+    private firstDrag: boolean;
+
+    public onDown?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
+    public onMove?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
+    public onRelease?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
+    public onMoveStart?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
+    public onTap?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
+
+    private suitSprite?: Sprite;
+    private rankBitmapText?: BitmapText;
+
+    static isCardSprite(o: TableSprite): o is CardSprite {
+        return o.type === "card";
+    }
     
     constructor(entityId: string, card: Card) {
         super(Texture.from('card.png'));
-        this.entityId = entityId;
+        this.id = entityId;
         this.card = card;
         
-        this.suitSprite = new Sprite(CardSprite.getSuitTexture(card));
+        this.dragging = false;
+        this.draggable = false;
+        this.firstDrag = true;
+        this.initPointerEventCallbacks();
+        this.redraw();
+    }
+
+    public redraw () {
+        this.removeChildren();
+        this.suitSprite?.destroy();
+        this.rankBitmapText?.destroy();
+
+        this.suitSprite = new Sprite(CardSprite.getSuitTexture(this.card));
         this.addChild(this.suitSprite);
         this.suitSprite.x = 5;
         this.suitSprite.y = 25;
 
         this.rankBitmapText = new BitmapText({
-            text: CardSprite.getRankText(card),
+            text: CardSprite.getRankText(this.card),
             style: {
                 fontFamily: 'CMU Typewriter Text',
                 fontSize: 36,
-                fill: CardSprite.getSuitColor(card)
+                fill: CardSprite.getSuitColor(this.card)
             }
         });
         this.addChild(this.rankBitmapText);
@@ -36,9 +61,6 @@ export class CardSprite extends Sprite implements TableEntity {
 
         this.eventMode = "dynamic";
         this.interactiveChildren = false;
-
-        this.dragging = false;
-        this.initializeDraggability();
     }
 
     static getSuitColor(card: Card): number {
@@ -82,29 +104,46 @@ export class CardSprite extends Sprite implements TableEntity {
         }
     }
 
-    public enregister(table: Table) {
-        setInterval(() => {
-            if (this.dragging) {
-                table.broadcast(this.x, this.y, this.entityId);
+    private initPointerEventCallbacks() {
+        this.on('pointertap', (event) => {
+            if (this.onTap) {
+                this.onTap(this, event);
             }
-        }, 20);
-    }
-
-    private initializeDraggability() {
+        })
         this.on('pointerdown', (event) => {
             this.dragging = true;
+            if (this.onDown) {
+                this.onDown(this, event);
+            }
         });
         this.on('globalpointermove', (event) => {
-            if (this.dragging) {
-                this.x += event.movementX;
-                this.y += event.movementY;
+            if (this.dragging && this.draggable) {
+                // this.x += event.movementX;
+                // this.y += event.movementY;
+                if (this.onMove) {
+                    if (this.firstDrag) {
+                        this.firstDrag = false;
+                        if (this.onMoveStart) {
+                            this.onMoveStart(this, event);
+                        }
+                    }
+                    this.onMove(this, event);
+                }
             }
         });
         this.on('pointerup', (event => {
             this.dragging = false;
+            this.firstDrag = true;
+            if (this.onRelease) {
+                this.onRelease(this, event);
+            }
         }));
         this.on('pointerupoutside', (event => {
             this.dragging = false;
+            this.firstDrag = true;
+            if (this.onRelease) {
+                this.onRelease(this, event);
+            }
         }));
     }
 }

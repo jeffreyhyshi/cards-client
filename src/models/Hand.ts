@@ -1,16 +1,16 @@
-import { Card } from "./Card";
-import { type TableEntity } from "./TableEntity";
+import type { TableEntityType, TableStateEntity } from "../TableState";
+import type { Card } from "./Card";
 
-export class Hand implements TableEntity {
-    public entityId: string;
-    private cards: Card[] = [];
+export class Hand implements TableStateEntity {
+    public type: TableEntityType = "hand";
+    public cards: Card[] = [];
+    public playerId: string
 
-    constructor(entityId: string, cardOrCards: Card | Card[]) {
-        if (Array.isArray(cardOrCards)) {
-            this.cards = cardOrCards;
-        } else {
-            this.cards.push(cardOrCards);
-        }
-        this.entityId = entityId
+    static isHand(o: TableStateEntity): o is Hand {
+        return o.type === "hand";
+    }
+
+    constructor(playerId: string) {
+        this.playerId = playerId;
     }
 }

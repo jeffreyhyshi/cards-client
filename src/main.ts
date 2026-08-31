@@ -1,15 +1,13 @@
 import manifest from "./manifest.json";
 import { CardSprite } from "./sprites/CardSprite"
-import { Card, type Suit, Suits } from  "./models/Card"
-import { Peer } from 'peerjs';
-import { Application, Assets, TexturePool, TextureStyle, Ticker } from 'pixi.js';
-import { Table } from "./Table";
+import { Card, Suits } from  "./models/Card"
+import { Application, Assets, Filter, TexturePool, TextureStyle, Ticker } from 'pixi.js';
+import { TableShell } from "./TableShell";
+import vertexShader from "./shaders/test.glsl?raw";
+import fragmentShader from "./shaders/testFrag.glsl?raw";
+import { recursiveResize } from "./util/Utilities";
 
-const myidElem: HTMLElement = document.getElementById("myid")!;
 const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
-
-const peeridInput: HTMLInputElement = document.getElementById("peerid") as HTMLInputElement;
-const connectButton: HTMLElement = document.getElementById("connect")!;
 
 (async () => {
     const app = new Application();
@@ -19,7 +17,8 @@ const connectButton: HTMLElement = document.getElementById("connect")!;
         background: '#EAFFEA',
         width: 800,
         height: 600,
-        sharedTicker: true
+        sharedTicker: true,
+        resizeTo: window
     })
     TextureStyle.defaultOptions.scaleMode = 'nearest';
     TexturePool.textureOptions.scaleMode = 'nearest';
@@ -28,76 +27,61 @@ const connectButton: HTMLElement = document.getElementById("connect")!;
     
     appContainerElem.appendChild(app.canvas);
 
+    Ticker.shared.minFPS = 60;
+
+    const tableShell = await TableShell.initialize(app);
+
+    app.renderer.on('resize', (width, height) => {
+        recursiveResize(app.stage, width, height);
+    })
+
+    setInterval(() => {
+        console.log(Array.from(tableShell.tableNetwork.players.keys()));
+    }, 2000)
+})();
+
+function testRender(app: Application) {
+    const waveFilter = Filter.from({
+        gl: {
+            fragment: fragmentShader,
+            vertex: vertexShader
+        },
+        resources: {
+            waveUniforms: {
+                uWaveAmplitude: { value: 0.05, type: 'f32' },
+                uWaveFrequency: { value: 10.0, type: 'f32' },
+                uTime: { value: 0.0, type: 'f32' },
+            },
+        },
+    });
+
     const card0 = new CardSprite("card0", new Card(Suits.Spades, 1));
     const card1 = new CardSprite("card1", new Card(Suits.Diamonds, 2));
     const card2 = new CardSprite("card2", new Card(Suits.Clubs, 12));
     const card3 = new CardSprite("card3", new Card(Suits.Hearts, 13));
+
+    card3.filters = [waveFilter];
+
+    app.ticker.add((ticker) => {
+        waveFilter.resources.waveUniforms.uniforms.uTime += 0.1 * ticker.deltaTime;
+    });
 
     app.stage.addChild(card0);
     app.stage.addChild(card1);
     app.stage.addChild(card2);
     app.stage.addChild(card3);
 
-    Ticker.shared.minFPS = 60;
+    // const ownHand = new OwnHandSprite("ownHand", app.renderer.width, app.renderer.height);
+    // app.stage.addChild(ownHand);
 
-    const table = await Table.createTable();
+    // const connectButton = SideButtonManager.connectButton(app, table);
 
-    myidElem.innerText = table.tableId ?? "";
+    // const buttonPanel = new VerticalList(10, "right");
 
-    table.addEntity(card0);
-    table.addEntity(card1);
-    table.addEntity(card2);
-    table.addEntity(card3);
+    // buttonPanel.addChild(connectButton);
 
-    connectButton.addEventListener("click", function (event) {
-        if (table.tableId && peeridInput.value) {
-            table.connectToPeerTable(peeridInput.value);
-        }
-    });
-
-    setInterval(() => {
-        console.log(Array.from(table.players.keys()));
-    }, 2000)
-})();
-
-// var myNumber;
-
-// peer.on("open", function (id) {
-//     console.log("My peer ID is: " + id);
-//     myidElem.innerText = id;
-// });
-
-// peer.on("connection", function(conn) {
-//     conn.on("data", function(data) {
-//         console.log("conn open callback from connectee");
-//         if (!isNaN(data)) {
-//             peerNumberElem.innerText = data;
-//         }
-//         if (myNumber === undefined) {
-//             myNumber = Math.floor(Math.random() * 10);
-//             myNumberElem.innerText = myNumber;
-//             conn.send(myNumber);
-//         }
-//     })
-// })
-
-// connectButton.addEventListener("click", function (event) {
-//     if (!peer.disconnected && peeridInput.value) {
-//         console.log("hello")
-//         const conn = peer.connect(peeridInput.value);
-//         conn.on("open", function() {
-//             console.log("conn open callback from connector");
-//             conn.on("data", function(data) {
-//                 if (!isNaN(data)) {
-//                     peerNumberElem.innerText = data;
-//                 }
-//             });
-
-//             myNumber = Math.floor(Math.random() * 10);
-//             myNumberElem.innerText = myNumber;
-//             conn.send(myNumber);
-//         });
-//     }
-// });
-
+    // app.stage.addChild(buttonPanel);
+    // buttonPanel.x = app.renderer.width;
+    // buttonPanel.y = app.renderer.height / 2;
+}
 

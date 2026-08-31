@@ -1,26 +1,17 @@
-import { Card, MIN_RANK, MAX_RANK, type Rank, type Suit, Suits } from "./Card";
-import { type TableEntity } from "./TableEntity";
+import type { TableEntityType, TableStateEntity } from "../TableState";
+import { Card, MAX_RANK, MIN_RANK, Suits, type Rank, type Suit } from "./Card";
 
-interface DrawCardsOptions {
-    n: number;
-}
+export class Pile implements TableStateEntity {
+    public type: TableEntityType = "pile";
+    public cards: Card[];
+    public worldX: number;
+    public worldY: number;
 
-// Models a pile of cards
-export class Pile implements TableEntity {
-    public entityId: string;
-    private cards: Card[] = [];
-
-    public drawCards({n = 1}: DrawCardsOptions): Card[] {
-        let result = this.cards.slice(0, Math.min(this.cards.length, n));
-        this.cards.splice(0, n);
-        return result;
+    static isPile(o: TableStateEntity): o is Pile {
+        return o.type === "pile";
     }
 
-    public addCards() {
-
-    }
-
-    static freshDeck(entityId: string): Pile {
+    static newDeck(worldX: number, worldY: number): Pile {
         let cards = [];
         let suit: Suit;
         for (suit of Object.values(Suits)) {
@@ -28,16 +19,12 @@ export class Pile implements TableEntity {
                 cards.push(new Card(suit, i as Rank));
             }
         }
-
-        return new Pile(entityId, cards);
+        return new Pile(worldX, worldY, cards);
     }
 
-    constructor(entityId: string, cardOrCards: Card | Card[]) {
-        if (Array.isArray(cardOrCards)) {
-            this.cards = cardOrCards;
-        } else {
-            this.cards.push(cardOrCards);
-        }
-        this.entityId = entityId;
+    constructor(worldX: number, worldY: number, cards: Card[]) {
+        this.worldX = worldX;
+        this.worldY = worldY;
+        this.cards = cards;
     }
 }
