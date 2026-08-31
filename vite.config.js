@@ -57,7 +57,6 @@ export default defineConfig ({
     assetpackPlugin(),
   ],
   build: {
-    outDir: '../dist',
     emptyOutDir: true,
     sourcemap: true,
     minify: 'oxc',
