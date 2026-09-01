@@ -24,6 +24,21 @@
         },
         {
           "alias": [
+            "card/bg.png",
+            "bg.png"
+          ],
+          "src": [
+            "card/bg@0.5x.png",
+            "card/bg.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
             "card/button.png",
             "button.png"
           ],

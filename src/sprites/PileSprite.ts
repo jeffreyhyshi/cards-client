@@ -43,7 +43,7 @@ export class PileSprite extends Sprite implements TableSprite {
         this.pileSprites = [];
         // For every five cards remaining in the pile, draw a stacked "card" to indicate quantity
         let i = 0;
-        for (; i < Math.floor(this.pile.cards.length / 5); i++) {
+        for (; i < Math.floor(this.pile.cards.length / 10); i++) {
             let pileSprite = new Sprite(Texture.from('card.png'));
             this.addChild(pileSprite);
             pileSprite.x = -3 * i;

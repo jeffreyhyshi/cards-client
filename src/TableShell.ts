@@ -3,12 +3,13 @@ import { TableNetwork } from './TableNetwork';
 import { TableState, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
 import { Hand } from './models/Hand';
 import { Pile } from './models/Pile';
-import type { Application, Bounds, Container, FederatedPointerEvent, Point } from 'pixi.js';
+import { TilingSprite, type Application, type Bounds, type Container, type FederatedPointerEvent, Point } from 'pixi.js';
 import { PileSprite } from './sprites/PileSprite';
 import type { PointerEventSprite } from './sprites/PointerEventSprite';
 import { OwnHandSprite } from './sprites/OwnHandSprite';
 import { SidePanelSprite } from './sprites/SidePanelSprite';
 import type { CardSprite } from './sprites/CardSprite';
+import { TableBackgroundSprite } from './sprites/TableBackgroundSprite';
 
 // Graphics/UI layer. Renders based on the underlying TableState. Communicates user actions to TableNetwork.
 export class TableShell {
@@ -20,6 +21,9 @@ export class TableShell {
     // Cache TableState entity bounding boxes
     public spriteBounds: Map<string, Bounds> = new Map();
     public sidePanel: SidePanelSprite;
+    public backgroundSprite: TilingSprite;
+    public worldOffset: Point;
+    private bgDragging: boolean = false;
 
     static async initialize(app: Application): Promise<TableShell> {
         const tableState = new TableState();
@@ -34,10 +38,13 @@ export class TableShell {
         this.tableState = tableState;
         this.tableNetwork = tableNetwork;
         this.sidePanel = new SidePanelSprite(this);
+        this.backgroundSprite = new TableBackgroundSprite(this.app.renderer.width, this.app.renderer.height);
+        // Opinionated default offset
+        this.worldOffset = new Point((this.app.renderer.width - 100) / 2, -(this.app.renderer.height * 0.8 - 132) / 2);
 
         tableNetwork.tableCall({
             methodName: "addDeck",
-            opts: { playerId: this.tableNetwork.myself.id, worldX: 50, worldY: 50 }
+            opts: { playerId: this.tableNetwork.myself.id, gridX: 0, gridY: 0 }
         });
 
         tableNetwork.tableCall({
@@ -85,12 +92,41 @@ export class TableShell {
         }
 
         this.tableNetwork.tableShell = this;
+
+        this.backgroundSprite.eventMode = "dynamic";
+
+        this.backgroundSprite.on('pointerdown', (event) => {
+            this.bgDragging = true;
+        })
+        
+        this.backgroundSprite.on("globalpointermove", (event) => {
+            if (this.bgDragging) {
+                this.worldOffset.x += event.movementX;
+                this.worldOffset.y -= event.movementY;
+                this.initFromState();
+            }
+        });
+
+        this.backgroundSprite.on('pointerup', (event => {
+            this.bgDragging = false;
+        }));
+        this.backgroundSprite.on('pointerupoutside', (event => {
+            this.bgDragging = false;
+        }));
     }
 
     // Reset and draw from the state
     public initFromState() {
         this.spriteEntities.clear();
         this.app.stage.removeChildren();
+        this.backgroundSprite.tilePosition.x = this.worldOffset.x;
+        this.backgroundSprite.tilePosition.y = -this.worldOffset.y;
+        this.app.stage.addChild(this.backgroundSprite);
+
+        this.redrawEntities();
+    }
+
+    public redrawEntities() {
         // Iterate through state entities
         for (let entityId of this.tableState.entities.keys()) {
             const entity = this.tableState.entities.get(entityId)!;
@@ -147,8 +183,9 @@ export class TableShell {
         const p = new PileSprite(id, pile);
         this.app.stage.addChild(p);
         this.spriteEntities.set(id, p);
-        p.x = pile.worldX;
-        p.y = pile.worldY;
+        const screenPos = this.fromGridToScreenPosition(pile.gridX, pile.gridY);
+        p.x = screenPos.x + 10;
+        p.y = -screenPos.y + 10;
         p.redraw(this);
     }
 
@@ -176,6 +213,11 @@ export class TableShell {
             }
         }
         return false;
+    }
+
+    // Calculates the screen rendering position based on a card grid position
+    private fromGridToScreenPosition(gridPosX: number, gridPosY: number): Point {
+        return new Point(gridPosX * 100 + this.worldOffset.x, gridPosY * -132 + this.worldOffset.y);
     }
 
     private toWorldPosition(screenPos: Point): {worldX: number, worldY: number} {

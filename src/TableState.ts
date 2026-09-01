@@ -29,8 +29,8 @@ export interface ReleaseOpts extends TableStateOpts {
 }
 
 export interface AddDeckOpts extends TableStateOpts {
-    worldX: number;
-    worldY: number;
+    gridX: number;
+    gridY: number;
 }
 
 export interface AddHandOpts extends TableStateOpts {}
@@ -98,7 +98,7 @@ export class TableState {
     }
 
     public addDeck(opts: AddDeckOpts) {
-        const newDeck = Pile.newDeck(opts.worldX, opts.worldY);
+        const newDeck = Pile.newDeck(opts.gridX, opts.gridY);
         this.entities.set(randomId(), newDeck);
     }
 

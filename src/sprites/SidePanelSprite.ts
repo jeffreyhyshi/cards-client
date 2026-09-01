@@ -41,8 +41,8 @@ export class SidePanelSprite extends Container implements ResizableSprite {
         button.onPress.connect(() => {
             const dialog = ConnectDialog.create(this.tableShell);
             this.tableShell.app.stage.addChild(dialog);
-            dialog.x = 200;
-            dialog.y = 200;
+            dialog.x = (this.tableShell.app.renderer.width - 300) / 2;
+            dialog.y = (this.tableShell.app.renderer.height - 300) / 2
         })
 
         return button;

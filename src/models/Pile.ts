@@ -4,14 +4,14 @@ import { Card, MAX_RANK, MIN_RANK, Suits, type Rank, type Suit } from "./Card";
 export class Pile implements TableStateEntity {
     public type: TableEntityType = "pile";
     public cards: Card[];
-    public worldX: number;
-    public worldY: number;
+    public gridX: number;
+    public gridY: number;
 
     static isPile(o: TableStateEntity): o is Pile {
         return o.type === "pile";
     }
 
-    static newDeck(worldX: number, worldY: number): Pile {
+    static newDeck(gridX: number, gridY: number): Pile {
         let cards = [];
         let suit: Suit;
         for (suit of Object.values(Suits)) {
@@ -19,12 +19,12 @@ export class Pile implements TableStateEntity {
                 cards.push(new Card(suit, i as Rank));
             }
         }
-        return new Pile(worldX, worldY, cards);
+        return new Pile(gridX, gridY, cards);
     }
 
-    constructor(worldX: number, worldY: number, cards: Card[]) {
-        this.worldX = worldX;
-        this.worldY = worldY;
+    constructor(gridX: number, gridY: number, cards: Card[]) {
+        this.gridX = gridX;
+        this.gridY = gridY;
         this.cards = cards;
     }
 }
