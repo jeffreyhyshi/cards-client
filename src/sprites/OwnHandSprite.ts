@@ -64,13 +64,32 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
         let l = this.hand.cards.length;
         for (let i = 0; i < l; i++) {
             let card = this.hand.cards[i]!;
-            console.log(card);
             let cardSprite = new CardSprite(this.id, card);
             this.addChild(cardSprite);
             cardSprite.x = (i + 1) * this.screenWidth / (l + 1) - cardSprite.width / 2;
             cardSprite.y = 24;
+            cardSprite.index = i;
+            table?.decorateCardBehavior(this, cardSprite, i);
             this.cardSprites.push(cardSprite);
         }
+    }
+
+    public getCardSprite(indices: number[]): TableSprite | undefined {
+        if (indices.length === 1) {
+            const index = indices[0]!;
+            return this.cardSprites[index];
+        } else {
+            // TODO: Fix behavior for multi-card selection
+            const result = []
+            for (let i = 0; i < indices.length; i++) {
+                const index = indices[i];
+                if (index && this.cardSprites[index]) {
+                    result.push(this.cardSprites[index]);
+                }
+            }
+            return this;
+        }
+        
     }
 
     public reactRelease(table: TableShell, other?: TableSprite) {
@@ -81,9 +100,10 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
                     playerId: table.tableNetwork.myself.id,
                     fromId: other.id,
                     toId: this.id,
-                    indices: [0] // FIXME: this will need to be adjustable
+                    indices: [other.index ?? 0]
                 }
             });
+            other.id = this.id;
         }
     };
 

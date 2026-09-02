@@ -138,7 +138,6 @@ export class TableNetwork {
         // Check for others connecting to us. We are the "host"; send the current list of players at the table.
         this.myself.on("connection", (conn) => {
             conn.on("open", () => {
-                console.log("opened")
                 const connData: TableConnectionData = {
                     tableId: this.tableId!,
                     tableState: this.serializeTableState(),
@@ -148,8 +147,6 @@ export class TableNetwork {
                 conn.on("data", this.handleData.bind(this));
                 this.players.set(conn.peer, conn);
             })
-            console.log("connected")
-            console.log(conn)
         })
         this.myself.on("error", (err) => {
             console.log("error with peer")
@@ -171,7 +168,6 @@ export class TableNetwork {
     }
 
     public committedTableCall(validCommitCall: ValidatedTableCommitCall) {
-        console.log("Sending initial grab call");
         const callId = randomId();
         if (this.players.size > 0) {
             const call: TableCommitCall = {
@@ -209,7 +205,6 @@ export class TableNetwork {
                 console.log("conn error")
                 console.log(err.message)
             })
-            console.log(conn);
         }
     }
      /**
@@ -232,8 +227,6 @@ export class TableNetwork {
 
     // Handle initial receipt of a TableCommitCall
     private handleTableCommitCall(data: TableCommitCall) {
-        console.log("Receiving commit call");
-
         if (this.conflicts.has(data.opts.fromId)) {
             const mine: TablePending = this.conflicts.get(data.opts.fromId)!;
             // Check that it's a real conflict, i.e. one of us is grabbing the entire entity
@@ -270,8 +263,6 @@ export class TableNetwork {
 
     // Handle receipt of a confirmation of a TableCommitCall
     private handleTableConfirmation(data: TableConfirmation) {
-        console.log("Receiving confirmation");
-
         if (this.pending.has(data.callId)) {
             const p: TablePending = this.pending.get(data.callId)!;
             if (p.isMyCall) {

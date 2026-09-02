@@ -29,17 +29,8 @@ export class PileSprite extends Sprite implements TableSprite {
     }
 
     public redraw(table?: TableShell) {
-        console.log("redraw called, table: ");
-        console.log(table);
         this.removeChildren();
-        this.topCardSprite?.destroy();
-        this.nextCardSprite?.destroy();
 
-        for (let pileSprite of this.pileSprites) {
-            pileSprite.destroy();
-        }
-        delete this.topCardSprite;
-        delete this.nextCardSprite;
         this.pileSprites = [];
         // For every five cards remaining in the pile, draw a stacked "card" to indicate quantity
         let i = 0;
@@ -56,15 +47,49 @@ export class PileSprite extends Sprite implements TableSprite {
                 this.addChild(this.nextCardSprite);
                 this.nextCardSprite.x = -3 * i;
                 this.nextCardSprite.y = -3 * i;
-                i += 1;
+                this.nextCardSprite.index = 1;
             }
             this.topCardSprite = new CardSprite(this.id, this.pile.cards[0]!);
             this.addChild(this.topCardSprite);
             this.topCardSprite.x = -3 * i;
             this.topCardSprite.y = -3 * i;
+            this.topCardSprite.index = 0;
         }
         if (this.topCardSprite) {
             table?.decorateCardBehavior(this, this.topCardSprite);
+        }
+    }
+
+    public reactRelease(table: TableShell, other?: TableSprite) {
+        if (other && CardSprite.isCardSprite(other)) {
+            table.tableNetwork.tableCall({
+                methodName: "moveCards",
+                opts: {
+                    playerId: table.tableNetwork.myself.id,
+                    fromId: other.id,
+                    toId: this.id,
+                    indices: [other.index ?? 0]
+                }
+            });
+            other.id = this.id;
+        }
+    };
+
+    public getCardSprite(indices: number[]): TableSprite | undefined {
+        if (indices.length === 1 && indices[0] === 0 && this.topCardSprite) {
+            return this.topCardSprite;
+        } else {
+            // TODO: Fix behavior for multi-card selection
+            const result: CardSprite[] = []
+            for (let i = 0; i < indices.length; i++) {
+                const index = indices[i];
+                if (index && index === 0 && this.topCardSprite) {
+                    result.push(this.topCardSprite);
+                } else if (index && index === 0 && this.nextCardSprite) {
+                    result.push(this.nextCardSprite);
+                }
+            }
+            return this;
         }
     }
 }

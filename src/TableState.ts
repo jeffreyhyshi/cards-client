@@ -41,6 +41,13 @@ export interface MoveCardsOpts extends TableStateOpts {
     toId: string;
 }
 
+export interface MoveCardsToNewPileOpts extends TableStateOpts {
+    indices: number[];
+    fromId: string;
+    gridX: number;
+    gridY: number;
+}
+
 export interface GrabbedCardPositionOpts extends TableStateOpts {
     worldX: number;
     worldY: number;
@@ -74,7 +81,7 @@ export class TableState {
 
     // Moves cards from one hand/deck to another.
     // Card must have already been grabbed by the given player.
-    public moveCards(opts: MoveCardsOpts): void {
+    public moveCards(opts: MoveCardsOpts) {
         const grabbed = this.grabbedEntities.get(opts.playerId)
         if (grabbed && grabbed.fromId === opts.fromId &&
             ((grabbed.indices && arraysEqual(grabbed.indices, opts.indices)) || !grabbed.indices)) {
@@ -93,6 +100,31 @@ export class TableState {
 
             if (this.onMoveCards) {
                 this.onMoveCards(opts);
+            }
+        }
+    }
+
+    public moveCardsToNewPile(opts: MoveCardsToNewPileOpts) {
+        const grabbed = this.grabbedEntities.get(opts.playerId)
+        if (grabbed && grabbed.fromId === opts.fromId &&
+            ((grabbed.indices && arraysEqual(grabbed.indices, opts.indices)) || !grabbed.indices)) {
+            const from = this.entities.get(opts.fromId);
+            const cards = [];
+            if (from) {
+                // Iterate through indices in reverse order
+                for (let i = opts.indices.length - 1; i >= 0; i--) {
+                    let fromCard = from.cards[opts.indices[i]!];
+                    if (fromCard) {
+                        cards.unshift(fromCard);
+                        from.cards.splice(opts.indices[i]!, 1);
+                    }
+                }
+            }
+            const newPile = new Pile(opts.gridX, opts.gridY, cards);
+            this.entities.set(randomId(), newPile);
+            
+            if (this.onMoveCardsToNewPile) {
+                this.onMoveCardsToNewPile(opts);
             }
         }
     }
@@ -131,6 +163,8 @@ export class TableState {
     }
 
     public onMoveCards?: (opts: MoveCardsOpts) => void;
+
+    public onMoveCardsToNewPile?: (opts: MoveCardsToNewPileOpts) => void;
 
     public onAddDeck?: (opts: AddDeckOpts) => void;
 

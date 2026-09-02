@@ -7,6 +7,7 @@ export class CardSprite extends Sprite implements PointerEventSprite {
     public type: "card" = "card";
     public id: string;
     public card: Card;
+    public index?: number;
 
     public draggable: boolean;
     public dragging: boolean;
@@ -61,6 +62,11 @@ export class CardSprite extends Sprite implements PointerEventSprite {
 
         this.eventMode = "dynamic";
         this.interactiveChildren = false;
+    }
+
+    // Always returns itself
+    public getCardSprite(_: number[]): TableSprite {
+        return this;
     }
 
     static getSuitColor(card: Card): number {

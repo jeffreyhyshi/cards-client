@@ -1,6 +1,6 @@
 import { type TableSprite } from './sprites/TableSprite';
 import { TableNetwork } from './TableNetwork';
-import { TableState, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
+import { TableState, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
 import { Hand } from './models/Hand';
 import { Pile } from './models/Pile';
 import { TilingSprite, type Application, type Bounds, type Container, type FederatedPointerEvent, Point } from 'pixi.js';
@@ -66,9 +66,8 @@ export class TableShell {
                 let spriteToMove = this.spriteEntities.get(grabOpts.fromId);
                 if (spriteToMove) {
                     // FIXME: standardize response to these in TableSprite
-                    if (PileSprite.isPileSprite(spriteToMove) &&
-                            grabOpts.indices && grabOpts.indices[0] === 0) {
-                        spriteToMove = spriteToMove.topCardSprite ?? spriteToMove;
+                    if (grabOpts.indices) {
+                        spriteToMove = spriteToMove.getCardSprite(grabOpts.indices) ?? spriteToMove;
                     }
                     if (spriteToMove.parent) {
                         const localCoords = spriteToMove.parent.toLocal({ x: opts.worldX, y: opts.worldY })
@@ -80,15 +79,19 @@ export class TableShell {
         };
 
         tableState.onMoveCards = (opts: MoveCardsOpts) => {
-            console.log("cards moved")
-            const fromSprite = this.spriteEntities.get(opts.fromId);
-            const toSprite = this.spriteEntities.get(opts.toId);
-            if (fromSprite) {
-                fromSprite.redraw(this);
-            }
-            if (toSprite) {
-                toSprite.redraw(this);
-            }
+            // const fromSprite = this.spriteEntities.get(opts.fromId);
+            // const toSprite = this.spriteEntities.get(opts.toId);
+            // if (fromSprite) {
+            //     fromSprite.redraw(this);
+            // }
+            // if (toSprite) {
+            //     toSprite.redraw(this);
+            // }
+            this.initFromState();
+        }
+
+        tableState.onMoveCardsToNewPile = (opts: MoveCardsToNewPileOpts) => {
+            this.initFromState();
         }
 
         this.tableNetwork.tableShell = this;
@@ -139,15 +142,14 @@ export class TableShell {
         this.app.stage.addChild(this.sidePanel);
     }
 
-    public decorateCardBehavior(parent: TableSprite, card: CardSprite) {
+    public decorateCardBehavior(parent: TableSprite, card: CardSprite, index: number = 0) {
         card.draggable = true;
         card.onMoveStart = () => {
-            console.log("grabbed - card callback");
             this.tableNetwork.committedTableCall({
                 methodName: "grab",
                 opts: {
                     fromId: parent.id,
-                    indices: [0],
+                    indices: [index],
                     playerId: this.tableNetwork.myself.id,
                 }
             });
@@ -162,19 +164,36 @@ export class TableShell {
                     playerId: this.tableNetwork.myself.id
                 }
             });
+            if (this.isInCardDropSquare(event.globalX, event.globalY)) {
+                c.alpha = 0.5;
+            } else {
+                c.alpha = 1.;
+            }
         }
         card.onRelease = (c: PointerEventSprite, event: FederatedPointerEvent) => {
-            console.log("released - card callback");
-            console.log(this.spriteEntities);
             if (!this.triggerPointerIntersections(event.globalX, event.globalY, card, false)) {
-                this.tableNetwork.tableCall({
-                    methodName: "release",
-                    opts: {
-                        playerId: this.tableNetwork.myself.id,
-                    }
-                });
-                // TODO: animate release
-                parent.redraw(this);
+                if (this.isInCardDropSquare(event.globalX, event.globalY)) {
+                    const gridPos = this.fromScreenToGridPosition(event.globalX, event.globalY);
+                    this.tableNetwork.tableCall({
+                        methodName: "moveCardsToNewPile",
+                        opts: {
+                            playerId: this.tableNetwork.myself.id,
+                            fromId: c.id,
+                            indices: [index],
+                            gridX: gridPos.x,
+                            gridY: gridPos.y
+                        }
+                    });
+                } else {
+                    this.tableNetwork.tableCall({
+                        methodName: "release",
+                        opts: {
+                            playerId: this.tableNetwork.myself.id,
+                        }
+                    });
+                    // TODO: animate release
+                    parent.redraw(this);
+                }
             }
         }
     }
@@ -191,7 +210,7 @@ export class TableShell {
 
     // Provides a list of entities that the cursor position is currently intersecting
     // Returns true if one or more actions were triggered
-    private triggerPointerIntersections(x: number, y: number, grabbed?: TableSprite, isHover: boolean = false): boolean {
+    private triggerPointerIntersections(screenX: number, screenY: number, grabbed: TableSprite, isHover: boolean = false): boolean {
         for (let id of this.spriteEntities.keys()) {
             let bounds = this.spriteBounds.get(id);
             if (!bounds) {
@@ -199,7 +218,7 @@ export class TableShell {
                 bounds = this.spriteEntities.get(id)!.getBounds(true);
                 this.spriteBounds.set(id, bounds);
             }
-            if (bounds.containsPoint(x, y)) {
+            if (bounds.containsPoint(screenX, screenY) && !(id === grabbed.id)) {
                 const entity = this.spriteEntities.get(id)
                 if (entity) {
                     if (isHover && entity.reactHover) {
@@ -213,6 +232,18 @@ export class TableShell {
             }
         }
         return false;
+    }
+
+    private isInCardDropSquare(screenX: number, screenY: number): boolean {
+        const modX = Math.abs((screenX - this.worldOffset.x) % 100);
+        const modY = Math.abs((screenY + this.worldOffset.y) % 132);
+        return modX >= 10 && modX <= 80 && modY >= 10 && modY <= 112;
+    }
+
+    private fromScreenToGridPosition(screenX: number, screenY: number): Point {
+        const indX = Math.floor((screenX - this.worldOffset.x) / 100);
+        const indY = Math.floor((screenY + this.worldOffset.y) / 132);
+        return new Point(indX, indY);
     }
 
     // Calculates the screen rendering position based on a card grid position
@@ -232,8 +263,9 @@ export class TableShell {
         // Render our own hand
         if (hand.playerId === this.tableNetwork.myself.id) {
             const h = new OwnHandSprite(hand, this.app.renderer.width, this.app.renderer.height);
-                this.app.stage.addChild(h);
-                this.spriteEntities.set(hand.playerId, h);
+            this.app.stage.addChild(h);
+            h.redraw(this);
+            this.spriteEntities.set(hand.playerId, h);
         } else {
         // Render someone else's hand
 
