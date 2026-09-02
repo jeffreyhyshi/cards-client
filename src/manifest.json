@@ -233,12 +233,57 @@
         },
         {
           "alias": [
+            "card/mini_card.png",
+            "mini_card.png"
+          ],
+          "src": [
+            "card/mini_card@0.5x.png",
+            "card/mini_card.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
             "card/modal.png",
             "modal.png"
           ],
           "src": [
             "card/modal@0.5x.png",
             "card/modal.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/nano_card.png",
+            "nano_card.png"
+          ],
+          "src": [
+            "card/nano_card@0.5x.png",
+            "card/nano_card.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/player_bar.png",
+            "player_bar.png"
+          ],
+          "src": [
+            "card/player_bar@0.5x.png",
+            "card/player_bar.png"
           ],
           "data": {
             "tags": {

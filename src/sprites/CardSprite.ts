@@ -38,7 +38,7 @@ export class CardSprite extends Sprite implements PointerEventSprite {
         this.redraw();
     }
 
-    public redraw () {
+    public redraw() {
         this.removeChildren();
         this.suitSprite?.destroy();
         this.rankBitmapText?.destroy();

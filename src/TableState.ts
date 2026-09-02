@@ -4,7 +4,7 @@
 import type { Card } from "./models/Card";
 import { Hand } from "./models/Hand";
 import { Pile } from "./models/Pile";
-import { arraysEqual, randomId } from "./util/Utilities";
+import { arraysEqual } from "./util/Utilities";
 
 export type TableEntityType = "pile" | "hand";
 
@@ -29,6 +29,7 @@ export interface ReleaseOpts extends TableStateOpts {
 }
 
 export interface AddDeckOpts extends TableStateOpts {
+    newId: string;
     gridX: number;
     gridY: number;
 }
@@ -44,6 +45,7 @@ export interface MoveCardsOpts extends TableStateOpts {
 export interface MoveCardsToNewPileOpts extends TableStateOpts {
     indices: number[];
     fromId: string;
+    newId: string;
     gridX: number;
     gridY: number;
 }
@@ -82,6 +84,8 @@ export class TableState {
     // Moves cards from one hand/deck to another.
     // Card must have already been grabbed by the given player.
     public moveCards(opts: MoveCardsOpts) {
+        // console.log("moveCards: ");
+        // console.log(opts);
         const grabbed = this.grabbedEntities.get(opts.playerId)
         if (grabbed && grabbed.fromId === opts.fromId &&
             ((grabbed.indices && arraysEqual(grabbed.indices, opts.indices)) || !grabbed.indices)) {
@@ -96,8 +100,11 @@ export class TableState {
                         from.cards.splice(opts.indices[i]!, 1);
                     }
                 }
+                if (from.type === "pile" && from.cards.length === 0) {
+                    this.entities.delete(opts.fromId);
+                }
             }
-
+            this.grabbedEntities.delete(opts.playerId);
             if (this.onMoveCards) {
                 this.onMoveCards(opts);
             }
@@ -105,6 +112,8 @@ export class TableState {
     }
 
     public moveCardsToNewPile(opts: MoveCardsToNewPileOpts) {
+        // console.log("moveCardsToNewPile: ");
+        // console.log(opts);
         const grabbed = this.grabbedEntities.get(opts.playerId)
         if (grabbed && grabbed.fromId === opts.fromId &&
             ((grabbed.indices && arraysEqual(grabbed.indices, opts.indices)) || !grabbed.indices)) {
@@ -119,10 +128,13 @@ export class TableState {
                         from.cards.splice(opts.indices[i]!, 1);
                     }
                 }
+                if (from.type === "pile" && from.cards.length === 0) {
+                    this.entities.delete(opts.fromId);
+                }
             }
             const newPile = new Pile(opts.gridX, opts.gridY, cards);
-            this.entities.set(randomId(), newPile);
-            
+            this.entities.set(opts.newId, newPile);
+            this.grabbedEntities.delete(opts.playerId);
             if (this.onMoveCardsToNewPile) {
                 this.onMoveCardsToNewPile(opts);
             }
@@ -131,7 +143,7 @@ export class TableState {
 
     public addDeck(opts: AddDeckOpts) {
         const newDeck = Pile.newDeck(opts.gridX, opts.gridY);
-        this.entities.set(randomId(), newDeck);
+        this.entities.set(opts.newId, newDeck);
     }
 
     public addHand(opts: AddHandOpts) {

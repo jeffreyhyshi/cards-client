@@ -1,10 +1,8 @@
-import { Container, FederatedPointerEvent, Sprite, Texture } from 'pixi.js'
+import { Sprite, Texture } from 'pixi.js'
 import type { TableShell } from '../TableShell';
 import type { Pile } from '../models/Pile';
 import { CardSprite } from './CardSprite';
 import type { TableSprite } from './TableSprite';
-import type { PointerEventSprite } from './PointerEventSprite';
-import { Filters } from '../util/Filters';
 
 // Sprite representing a pile of cards.
 // Contains card backgrounds and CardSprites as necessary
@@ -62,6 +60,12 @@ export class PileSprite extends Sprite implements TableSprite {
 
     public reactRelease(table: TableShell, other: TableSprite) {
         if (CardSprite.isCardSprite(other)) {
+            console.log("PileSprite.reactRelease");
+            console.log(other);
+            console.log(this);
+            console.log("current table ents: ")
+            console.log(table.spriteEntities)
+
             table.tableNetwork.tableCall({
                 methodName: "moveCards",
                 opts: {

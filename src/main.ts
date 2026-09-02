@@ -1,7 +1,5 @@
 import manifest from "./manifest.json";
-import { CardSprite } from "./sprites/CardSprite"
-import { Card, Suits } from  "./models/Card"
-import { Application, Assets, Filter, TexturePool, TextureStyle, Ticker } from 'pixi.js';
+import { Application, Assets, TexturePool, TextureStyle, Ticker } from 'pixi.js';
 import { TableShell } from "./TableShell";
 import { recursiveResize } from "./util/Utilities";
 
@@ -34,7 +32,7 @@ const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
     })
 
     setInterval(() => {
-        console.log(Array.from(tableShell.tableNetwork.players.keys()));
+        // console.log(tableShell.tableState);
     }, 2000)
 })();
 

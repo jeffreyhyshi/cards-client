@@ -11,6 +11,7 @@ import { SidePanelSprite } from './ui/SidePanelSprite';
 import type { CardSprite } from './sprites/CardSprite';
 import { TableBackgroundSprite } from './sprites/TableBackgroundSprite';
 import { Filters } from './util/Filters';
+import { randomId } from './util/Utilities';
 
 // Graphics/UI layer. Renders based on the underlying TableState. Communicates user actions to TableNetwork.
 export class TableShell {
@@ -45,7 +46,7 @@ export class TableShell {
 
         tableNetwork.tableCall({
             methodName: "addDeck",
-            opts: { playerId: this.tableNetwork.myself.id, gridX: 0, gridY: 0 }
+            opts: { newId: randomId(), playerId: this.tableNetwork.myself.id, gridX: 0, gridY: 0 }
         });
 
         tableNetwork.tableCall({
@@ -66,12 +67,15 @@ export class TableShell {
             if (grabOpts) {
                 let spriteToMove = this.spriteEntities.get(grabOpts.fromId);
                 if (spriteToMove) {
-                    // FIXME: standardize response to these in TableSprite
                     if (grabOpts.indices) {
                         spriteToMove = spriteToMove.getCardSprite(grabOpts.indices) ?? spriteToMove;
                     }
                     if (spriteToMove.parent) {
-                        const localCoords = spriteToMove.parent.toLocal({ x: opts.worldX, y: opts.worldY })
+                        if (!(opts.playerId === this.tableNetwork.myself.id)) {
+                            spriteToMove.filters = [Filters.wavyFilter(this.app)];
+                            spriteToMove.alpha = 0.5;
+                        }
+                        const localCoords = spriteToMove.parent.toLocal(this.fromWorldToScreenPosition(opts));
                         spriteToMove.x = localCoords.x;
                         spriteToMove.y = localCoords.y;
                     }
@@ -122,6 +126,7 @@ export class TableShell {
     // Reset and draw from the state
     public initFromState() {
         this.spriteEntities.clear();
+        this.spriteBounds.clear();
         this.app.stage.removeChildren();
         this.backgroundSprite.tilePosition.x = this.worldOffset.x;
         this.backgroundSprite.tilePosition.y = -this.worldOffset.y;
@@ -156,41 +161,36 @@ export class TableShell {
             });
         }
         card.onMove = (c: PointerEventSprite, event: FederatedPointerEvent) => {
-
             const screenPos = card.toGlobal({ x: event.movementX, y: event.movementY });
             // TODO: Animate partial drag/drop snapping
             this.tableNetwork.tableCall({
                 methodName: "grabbedCardPosition",
                 opts: {
-                    ...this.toWorldPosition(screenPos),
+                    ...this.fromScreenToWorldPosition(screenPos),
                     playerId: this.tableNetwork.myself.id
                 }
             });
-            if (this.isPointerIntersection(event.movementX, event.movementY, c)) {
-                console.log("just a card movin")
-
-                c.filters = [Filters.wavyFilter(this.app)];
+            if (this.isPointerIntersection(event.globalX, event.globalY, c) || this.isInCardDropSquare(event.globalX, event.globalY)) {
+                c.rotation = 0;
             } else {
-                c.filters = [];
-                if (this.isInCardDropSquare(event.globalX, event.globalY)) {
-                    c.alpha = 0.5;
-                    c.filters = [Filters.wavyFilter(this.app)];
-
-                } else {
-                    c.alpha = 1;
-                }
-            } 
+                c.rotation = Math.PI / 36;
+            }
         }
         card.onRelease = (c: PointerEventSprite, event: FederatedPointerEvent) => {
             if (!this.triggerPointerIntersections(event.globalX, event.globalY, card, false)) {
                 if (this.isInCardDropSquare(event.globalX, event.globalY)) {
                     const gridPos = this.fromScreenToGridPosition(event.globalX, event.globalY);
+                    console.log("card.onRelease");
+                    console.log(gridPos);
+                    console.log("current table ents: ")
+                    console.log(this.spriteEntities)
                     this.tableNetwork.tableCall({
                         methodName: "moveCardsToNewPile",
                         opts: {
                             playerId: this.tableNetwork.myself.id,
                             fromId: c.id,
                             indices: [index],
+                            newId: randomId(),
                             gridX: gridPos.x,
                             gridY: gridPos.y
                         }
@@ -279,12 +279,15 @@ export class TableShell {
         return new Point(gridPosX * 100 + this.worldOffset.x, gridPosY * -132 + this.worldOffset.y);
     }
 
-    private toWorldPosition(screenPos: Point): {worldX: number, worldY: number} {
-        // No-op for now TODO: implement infinite scroll table plane
+    private fromScreenToWorldPosition(screenPos: Point): {worldX: number, worldY: number} {
         return {
-            worldX: screenPos.x,
-            worldY: screenPos.y
+            worldX: screenPos.x - this.worldOffset.x,
+            worldY: screenPos.y + this.worldOffset.y
         }
+    }
+
+    private fromWorldToScreenPosition(worldPos: { worldX: number, worldY: number }): Point {
+        return new Point(worldPos.worldX + this.worldOffset.x, worldPos.worldY - this.worldOffset.y);
     }
 
     private addHand(hand: Hand) {
