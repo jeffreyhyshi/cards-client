@@ -2,10 +2,10 @@ import { FancyButton } from "@pixi/ui";
 import { SideButtonSprite } from "./SideButtonSprite";
 import type { TableShell } from "../TableShell";
 import { Container, type Application } from "pixi.js";
-import { ConnectDialog } from "../ui/ConnectDialog";
+import { ConnectDialog } from "./ConnectDialog";
 import type { GrabOpts } from "../TableState";
-import type { ResizableSprite } from "./ResizableSprite";
-import { VerticalList } from "./VerticalList";
+import type { ResizableSprite } from "../sprites/ResizableSprite";
+import { VerticalList } from "../sprites/VerticalList";
 
 // Internal type for caching panel configurations
 type panelContext = "global" | "pile" | "hand_card" | "hand_cards";

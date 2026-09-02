@@ -4,6 +4,7 @@ import type { Pile } from '../models/Pile';
 import { CardSprite } from './CardSprite';
 import type { TableSprite } from './TableSprite';
 import type { PointerEventSprite } from './PointerEventSprite';
+import { Filters } from '../util/Filters';
 
 // Sprite representing a pile of cards.
 // Contains card backgrounds and CardSprites as necessary
@@ -25,10 +26,9 @@ export class PileSprite extends Sprite implements TableSprite {
         super();
         this.id = entityId;
         this.pile = pile;
-        this.redraw();
     }
 
-    public redraw(table?: TableShell) {
+    public redraw(table: TableShell) {
         this.removeChildren();
 
         this.pileSprites = [];
@@ -60,8 +60,8 @@ export class PileSprite extends Sprite implements TableSprite {
         }
     }
 
-    public reactRelease(table: TableShell, other?: TableSprite) {
-        if (other && CardSprite.isCardSprite(other)) {
+    public reactRelease(table: TableShell, other: TableSprite) {
+        if (CardSprite.isCardSprite(other)) {
             table.tableNetwork.tableCall({
                 methodName: "moveCards",
                 opts: {
@@ -74,6 +74,10 @@ export class PileSprite extends Sprite implements TableSprite {
             other.id = this.id;
         }
     };
+
+    public reactHover(table: TableShell, other: TableSprite) {
+
+    }
 
     public getCardSprite(indices: number[]): TableSprite | undefined {
         if (indices.length === 1 && indices[0] === 0 && this.topCardSprite) {

@@ -3,8 +3,6 @@ import { CardSprite } from "./sprites/CardSprite"
 import { Card, Suits } from  "./models/Card"
 import { Application, Assets, Filter, TexturePool, TextureStyle, Ticker } from 'pixi.js';
 import { TableShell } from "./TableShell";
-import vertexShader from "./shaders/test.glsl?raw";
-import fragmentShader from "./shaders/testFrag.glsl?raw";
 import { recursiveResize } from "./util/Utilities";
 
 const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
@@ -41,35 +39,35 @@ const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
 })();
 
 function testRender(app: Application) {
-    const waveFilter = Filter.from({
-        gl: {
-            fragment: fragmentShader,
-            vertex: vertexShader
-        },
-        resources: {
-            waveUniforms: {
-                uWaveAmplitude: { value: 0.05, type: 'f32' },
-                uWaveFrequency: { value: 10.0, type: 'f32' },
-                uTime: { value: 0.0, type: 'f32' },
-            },
-        },
-    });
+    // const waveFilter = Filter.from({
+    //     gl: {
+    //         fragment: fragmentShader,
+    //         vertex: vertexShader
+    //     },
+    //     resources: {
+    //         waveUniforms: {
+    //             uWaveAmplitude: { value: 0.05, type: 'f32' },
+    //             uWaveFrequency: { value: 10.0, type: 'f32' },
+    //             uTime: { value: 0.0, type: 'f32' },
+    //         },
+    //     },
+    // });
 
-    const card0 = new CardSprite("card0", new Card(Suits.Spades, 1));
-    const card1 = new CardSprite("card1", new Card(Suits.Diamonds, 2));
-    const card2 = new CardSprite("card2", new Card(Suits.Clubs, 12));
-    const card3 = new CardSprite("card3", new Card(Suits.Hearts, 13));
+    // const card0 = new CardSprite("card0", new Card(Suits.Spades, 1));
+    // const card1 = new CardSprite("card1", new Card(Suits.Diamonds, 2));
+    // const card2 = new CardSprite("card2", new Card(Suits.Clubs, 12));
+    // const card3 = new CardSprite("card3", new Card(Suits.Hearts, 13));
 
-    card3.filters = [waveFilter];
+    // card3.filters = [waveFilter];
 
-    app.ticker.add((ticker) => {
-        waveFilter.resources.waveUniforms.uniforms.uTime += 0.1 * ticker.deltaTime;
-    });
+    // app.ticker.add((ticker) => {
+    //     waveFilter.resources.waveUniforms.uniforms.uTime += 0.1 * ticker.deltaTime;
+    // });
 
-    app.stage.addChild(card0);
-    app.stage.addChild(card1);
-    app.stage.addChild(card2);
-    app.stage.addChild(card3);
+    // app.stage.addChild(card0);
+    // app.stage.addChild(card1);
+    // app.stage.addChild(card2);
+    // app.stage.addChild(card3);
 
     // const ownHand = new OwnHandSprite("ownHand", app.renderer.width, app.renderer.height);
     // app.stage.addChild(ownHand);

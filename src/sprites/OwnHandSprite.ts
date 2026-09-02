@@ -29,11 +29,9 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
         this.screenWidth = initialScreenWidth;
         this.screenHeight = initialScreenHeight;
         this.hand = hand;
-
-        this.redraw();
     }
 
-    public redraw(table?: TableShell) {
+    public redraw(table: TableShell) {
         this.y = this.screenHeight * 0.8;
 
         this.backgroundSprite = new TilingSprite({
@@ -92,8 +90,8 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
         
     }
 
-    public reactRelease(table: TableShell, other?: TableSprite) {
-        if (other && CardSprite.isCardSprite(other)) {
+    public reactRelease(table: TableShell, other: TableSprite) {
+        if (CardSprite.isCardSprite(other)) {
             table.tableNetwork.tableCall({
                 methodName: "moveCards",
                 opts: {
@@ -106,6 +104,9 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
             other.id = this.id;
         }
     };
+
+    public reactHover(table: TableShell, other: TableSprite) {
+    }
 
     public onResize(width: number, height: number) {
         this.screenWidth = width;

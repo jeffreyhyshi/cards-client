@@ -7,9 +7,10 @@ import { TilingSprite, type Application, type Bounds, type Container, type Feder
 import { PileSprite } from './sprites/PileSprite';
 import type { PointerEventSprite } from './sprites/PointerEventSprite';
 import { OwnHandSprite } from './sprites/OwnHandSprite';
-import { SidePanelSprite } from './sprites/SidePanelSprite';
+import { SidePanelSprite } from './ui/SidePanelSprite';
 import type { CardSprite } from './sprites/CardSprite';
 import { TableBackgroundSprite } from './sprites/TableBackgroundSprite';
+import { Filters } from './util/Filters';
 
 // Graphics/UI layer. Renders based on the underlying TableState. Communicates user actions to TableNetwork.
 export class TableShell {
@@ -155,6 +156,7 @@ export class TableShell {
             });
         }
         card.onMove = (c: PointerEventSprite, event: FederatedPointerEvent) => {
+
             const screenPos = card.toGlobal({ x: event.movementX, y: event.movementY });
             // TODO: Animate partial drag/drop snapping
             this.tableNetwork.tableCall({
@@ -164,11 +166,20 @@ export class TableShell {
                     playerId: this.tableNetwork.myself.id
                 }
             });
-            if (this.isInCardDropSquare(event.globalX, event.globalY)) {
-                c.alpha = 0.5;
+            if (this.isPointerIntersection(event.movementX, event.movementY, c)) {
+                console.log("just a card movin")
+
+                c.filters = [Filters.wavyFilter(this.app)];
             } else {
-                c.alpha = 1.;
-            }
+                c.filters = [];
+                if (this.isInCardDropSquare(event.globalX, event.globalY)) {
+                    c.alpha = 0.5;
+                    c.filters = [Filters.wavyFilter(this.app)];
+
+                } else {
+                    c.alpha = 1;
+                }
+            } 
         }
         card.onRelease = (c: PointerEventSprite, event: FederatedPointerEvent) => {
             if (!this.triggerPointerIntersections(event.globalX, event.globalY, card, false)) {
@@ -229,6 +240,23 @@ export class TableShell {
                         return true;
                     }
                 }
+            }
+        }
+        return false;
+    }
+
+    private isPointerIntersection(screenX: number, screenY: number, grabbed: TableSprite): boolean {
+        for (let id of this.spriteEntities.keys()) {
+            console.log("in ispi")
+            let bounds = this.spriteBounds.get(id);
+            if (!bounds) {
+                // Calculate bounds
+                bounds = this.spriteEntities.get(id)!.getBounds(true);
+                this.spriteBounds.set(id, bounds);
+            }
+            if (bounds.containsPoint(screenX, screenY) && !(id === grabbed.id)) {
+                console.log("ispointerintersection")
+                return true;
             }
         }
         return false;
