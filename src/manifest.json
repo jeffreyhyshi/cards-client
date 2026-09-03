@@ -9,6 +9,20 @@
       "assets": [
         {
           "alias": [
+            "card/SerifPixel7-llXe.ttf",
+            "SerifPixel7-llXe.ttf"
+          ],
+          "src": [
+            "card/SerifPixel7-llXe.ttf"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
             "card/bar.png",
             "bar.png"
           ],
@@ -278,12 +292,12 @@
         },
         {
           "alias": [
-            "card/player_bar.png",
-            "player_bar.png"
+            "card/other_bar.png",
+            "other_bar.png"
           ],
           "src": [
-            "card/player_bar@0.5x.png",
-            "card/player_bar.png"
+            "card/other_bar@0.5x.png",
+            "card/other_bar.png"
           ],
           "data": {
             "tags": {

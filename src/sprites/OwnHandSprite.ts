@@ -32,6 +32,8 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
     }
 
     public redraw(table: TableShell) {
+        this.removeChildren();
+
         this.y = this.screenHeight * 0.8;
 
         this.backgroundSprite = new TilingSprite({
@@ -59,7 +61,7 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
         this.handIconSprite.y = 4;
 
         this.cardSprites = [];
-        let l = this.hand.cards.length;
+        const l = this.hand.cards.length;
         for (let i = 0; i < l; i++) {
             let card = this.hand.cards[i]!;
             let cardSprite = new CardSprite(this.id, card);

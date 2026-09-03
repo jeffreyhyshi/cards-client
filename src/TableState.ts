@@ -180,6 +180,8 @@ export class TableState {
 
     public onAddDeck?: (opts: AddDeckOpts) => void;
 
+    public onAddHand?: (opts: AddHandOpts) => void;
+
     public onGrabbedCardPosition?: (opts: GrabbedCardPositionOpts) => void;
 
     public onRelease?: (opts: ReleaseOpts, released: GrabOpts) => void;

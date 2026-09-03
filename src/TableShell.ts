@@ -1,6 +1,6 @@
 import { type TableSprite } from './sprites/TableSprite';
 import { TableNetwork } from './TableNetwork';
-import { TableState, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
+import { TableState, type AddHandOpts, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
 import { Hand } from './models/Hand';
 import { Pile } from './models/Pile';
 import { TilingSprite, type Application, type Bounds, type Container, type FederatedPointerEvent, Point } from 'pixi.js';
@@ -12,6 +12,7 @@ import type { CardSprite } from './sprites/CardSprite';
 import { TableBackgroundSprite } from './sprites/TableBackgroundSprite';
 import { Filters } from './util/Filters';
 import { randomId } from './util/Utilities';
+import { OtherHandSprite } from './sprites/OtherHandSprite';
 
 // Graphics/UI layer. Renders based on the underlying TableState. Communicates user actions to TableNetwork.
 export class TableShell {
@@ -99,6 +100,10 @@ export class TableShell {
             this.initFromState();
         }
 
+        tableState.onAddHand = (opts: AddHandOpts) => {
+            this.initFromState();
+        }
+
         this.tableNetwork.tableShell = this;
 
         this.backgroundSprite.eventMode = "dynamic";
@@ -136,15 +141,23 @@ export class TableShell {
     }
 
     public redrawEntities() {
-        // Iterate through state entities
+        // Iterate through state entities.
+        // We need to know how many other hands there are to render them, so collect them and pass them
+        // together.
+        const otherHands: Hand[] = [];
         for (let entityId of this.tableState.entities.keys()) {
             const entity = this.tableState.entities.get(entityId)!;
             if (Hand.isHand(entity)) {
-                this.addHand(entity);
-            } else if (Pile.isPile(entity)) {
+                if (entityId === this.tableNetwork.myself.id) {
+                    this.addOwnHand(entity);
+                } else {
+                    otherHands.push(entity);
+                }
+            } else if (Pile.isPile(entity)) {    
                 this.addPile(entityId, entity);
             }
         }
+        this.addOtherHands(otherHands);
         this.app.stage.addChild(this.sidePanel);
     }
 
@@ -209,11 +222,33 @@ export class TableShell {
         }
     }
 
+    private addOwnHand(hand: Hand) {
+        const h = new OwnHandSprite(hand, this.app.renderer.width, this.app.renderer.height);
+        this.app.stage.addChild(h);
+        h.redraw(this);
+        this.spriteEntities.set(hand.playerId, h);
+    }
+
+    private addOtherHands(hands: Hand[]) {
+        const l = hands.length;
+        for (let i = 0; i < l; i++) {
+            const hand = hands[i]!;
+            // Render someone else's hand
+            const h = new OtherHandSprite(hand, "xs");
+            this.app.stage.addChild(h);
+            h.x = (i + 1) * this.app.renderer.width / (l + 1) - h.width / 2;
+            h.y = 0;
+            h.redraw(this);
+            this.spriteEntities.set(hand.playerId, h);
+        }
+    }
+
     private addPile(id: string, pile: Pile) {
         const p = new PileSprite(id, pile);
         this.app.stage.addChild(p);
         this.spriteEntities.set(id, p);
         const screenPos = this.fromGridToScreenPosition(pile.gridX, pile.gridY);
+        // Offset to center the pile
         p.x = screenPos.x + 10;
         p.y = -screenPos.y + 10;
         p.redraw(this);
@@ -225,11 +260,10 @@ export class TableShell {
         for (let id of this.spriteEntities.keys()) {
             let bounds = this.spriteBounds.get(id);
             if (!bounds) {
-                // Calculate bounds
                 bounds = this.spriteEntities.get(id)!.getBounds(true);
                 this.spriteBounds.set(id, bounds);
             }
-            if (bounds.containsPoint(screenX, screenY) && !(id === grabbed.id)) {
+            if (bounds.containsPoint(screenX, screenY)) {
                 const entity = this.spriteEntities.get(id)
                 if (entity) {
                     if (isHover && entity.reactHover) {
@@ -247,7 +281,6 @@ export class TableShell {
 
     private isPointerIntersection(screenX: number, screenY: number, grabbed: TableSprite): boolean {
         for (let id of this.spriteEntities.keys()) {
-            console.log("in ispi")
             let bounds = this.spriteBounds.get(id);
             if (!bounds) {
                 // Calculate bounds
@@ -255,7 +288,6 @@ export class TableShell {
                 this.spriteBounds.set(id, bounds);
             }
             if (bounds.containsPoint(screenX, screenY) && !(id === grabbed.id)) {
-                console.log("ispointerintersection")
                 return true;
             }
         }
@@ -288,18 +320,5 @@ export class TableShell {
 
     private fromWorldToScreenPosition(worldPos: { worldX: number, worldY: number }): Point {
         return new Point(worldPos.worldX + this.worldOffset.x, worldPos.worldY - this.worldOffset.y);
-    }
-
-    private addHand(hand: Hand) {
-        // Render our own hand
-        if (hand.playerId === this.tableNetwork.myself.id) {
-            const h = new OwnHandSprite(hand, this.app.renderer.width, this.app.renderer.height);
-            this.app.stage.addChild(h);
-            h.redraw(this);
-            this.spriteEntities.set(hand.playerId, h);
-        } else {
-        // Render someone else's hand
-
-        }
     }
 } 

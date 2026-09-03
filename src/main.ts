@@ -2,6 +2,8 @@ import manifest from "./manifest.json";
 import { Application, Assets, TexturePool, TextureStyle, Ticker } from 'pixi.js';
 import { TableShell } from "./TableShell";
 import { recursiveResize } from "./util/Utilities";
+import { CardSprite } from "./sprites/CardSprite";
+import { Card, Suits } from "./models/Card";
 
 const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
 
@@ -37,6 +39,8 @@ const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
 })();
 
 function testRender(app: Application) {
+    const miniCard = new CardSprite("card0", new Card(Suits.Spades, 10), "xs");
+    app.stage.addChild(miniCard);
     // const waveFilter = Filter.from({
     //     gl: {
     //         fragment: fragmentShader,

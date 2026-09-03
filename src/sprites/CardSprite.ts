@@ -1,7 +1,9 @@
-import { BitmapText, FederatedPointerEvent, Sprite, Texture } from 'pixi.js'
+import { Text, BitmapText, FederatedPointerEvent, Sprite, Texture } from 'pixi.js'
 import { type Card, Suits } from '../models/Card';
 import type { PointerEventSprite } from './PointerEventSprite';
 import type { TableSprite } from './TableSprite';
+
+export type CardSpriteSize = "m" | "s" | "xs";
 
 export class CardSprite extends Sprite implements PointerEventSprite {
     public type: "card" = "card";
@@ -11,7 +13,13 @@ export class CardSprite extends Sprite implements PointerEventSprite {
 
     public draggable: boolean;
     public dragging: boolean;
-    private firstDrag: boolean;
+    public get size(): CardSpriteSize {
+        return this._size;
+    }
+    public set size(s: CardSpriteSize) {
+        this._size = s;
+        this.redraw();
+    }
 
     public onDown?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
     public onMove?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
@@ -20,17 +28,20 @@ export class CardSprite extends Sprite implements PointerEventSprite {
     public onTap?: (s: PointerEventSprite, e: FederatedPointerEvent) => void;
 
     private suitSprite?: Sprite;
-    private rankBitmapText?: BitmapText;
+    private rankText?: Text | BitmapText;
+    private firstDrag: boolean;
+    private _size: CardSpriteSize;
 
     static isCardSprite(o: TableSprite): o is CardSprite {
         return o.type === "card";
     }
     
-    constructor(entityId: string, card: Card) {
-        super(Texture.from('card.png'));
+    constructor(entityId: string, card: Card, size: CardSpriteSize = "m") {
+        super(Texture.from("card.png"));
         this.id = entityId;
         this.card = card;
-        
+        this._size = size;
+
         this.dragging = false;
         this.draggable = false;
         this.firstDrag = true;
@@ -39,26 +50,101 @@ export class CardSprite extends Sprite implements PointerEventSprite {
     }
 
     public redraw() {
+        if (this.size === "m") {
+            this.redrawMedium();
+        } else if (this.size === "s") {
+            this.redrawSmall();
+        } else if (this.size === "xs") {
+            this.redrawExtraSmall();
+        }
+    }
+
+    public redrawMedium() {
         this.removeChildren();
         this.suitSprite?.destroy();
-        this.rankBitmapText?.destroy();
+        this.rankText?.destroy();
 
         this.suitSprite = new Sprite(CardSprite.getSuitTexture(this.card));
         this.addChild(this.suitSprite);
-        this.suitSprite.x = 5;
+        this.suitSprite.x = 7;
         this.suitSprite.y = 25;
 
-        this.rankBitmapText = new BitmapText({
+        this.rankText = new BitmapText({
             text: CardSprite.getRankText(this.card),
+            anchor: {x: 0.5, y :0},
             style: {
                 fontFamily: 'CMU Typewriter Text',
                 fontSize: 36,
-                fill: CardSprite.getSuitColor(this.card)
+                fill: CardSprite.getSuitColor(this.card),
+                letterSpacing: -2
             }
         });
-        this.addChild(this.rankBitmapText);
-        this.rankBitmapText.x = 5;
-        this.rankBitmapText.y = -12;
+        this.addChild(this.rankText);
+        this.rankText.x = 13;
+        this.rankText.y = -12;
+
+        this.eventMode = "dynamic";
+        this.interactiveChildren = false;
+    }
+
+    public redrawSmall() {
+        this.texture = Texture.from("mini_card.png");
+
+        this.removeChildren();
+        this.suitSprite?.destroy();
+        this.rankText?.destroy();
+
+        this.suitSprite = new Sprite(CardSprite.getSuitTexture(this.card));
+        this.addChild(this.suitSprite);
+        this.suitSprite.x = 6;
+        this.suitSprite.y = 25;
+
+        this.rankText = new BitmapText({
+            text: CardSprite.getRankText(this.card),
+            anchor: { x: 0.5, y: 0 },
+            style: {
+                fontFamily: 'CMU Typewriter Text',
+                fontSize: 36,
+                fill: CardSprite.getSuitColor(this.card),
+                letterSpacing: -2
+            }
+        });
+        this.addChild(this.rankText);
+        this.rankText.x = 13;
+        this.rankText.y = -12;
+
+        this.eventMode = "dynamic";
+        this.interactiveChildren = false;
+    }
+
+    public redrawExtraSmall() {
+        this.texture = Texture.from("nano_card.png");
+
+        this.removeChildren();
+        this.suitSprite?.destroy();
+        this.rankText?.destroy();
+
+        this.suitSprite = new Sprite(CardSprite.getSuitTexture(this.card));
+        this.suitSprite.width = 8;
+        this.suitSprite.height = 8;
+        this.addChild(this.suitSprite);
+        this.suitSprite.x = 6;
+        this.suitSprite.y = 18;
+
+        this.rankText = new BitmapText({
+            text: CardSprite.getRankText(this.card),
+            anchor: { x: 0.55, y: 0 }, // Don't worry about it
+            roundPixels: true,
+            style: {
+                fontFamily: 'CMU Typewriter Text',
+                fontSize: 20,
+                fill: CardSprite.getSuitColor(this.card),
+                letterSpacing: -2
+            }
+        });
+        this.addChild(this.rankText);
+        this.rankText.x = 9;
+        this.rankText.y = -7;
 
         this.eventMode = "dynamic";
         this.interactiveChildren = false;
