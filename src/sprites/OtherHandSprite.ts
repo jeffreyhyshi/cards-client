@@ -22,6 +22,10 @@ export class OtherHandSprite extends Container implements TableSprite {
     private barNineSliceSprite?: NineSliceSprite;
     private cardSprites: CardSprite[] = [];
     private _size: OtherHandSpriteSize;
+
+    static isOtherHandSprite(s: TableSprite): s is OtherHandSprite {
+        return s.type === "otherhand";
+    }
     
     constructor(hand: Hand, size: OtherHandSpriteSize = "s") {
         super();

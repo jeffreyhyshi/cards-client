@@ -149,6 +149,9 @@ export class TableState {
     public addHand(opts: AddHandOpts) {
         const newHand = new Hand(opts.playerId);
         this.entities.set(opts.playerId, newHand);
+        if (this.onAddHand) {
+            this.onAddHand(opts);
+        }
     }
 
     public grabbedCardPosition(opts: GrabbedCardPositionOpts) {

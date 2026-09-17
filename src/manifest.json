@@ -83,6 +83,21 @@
         },
         {
           "alias": [
+            "card/card_back.png",
+            "card_back.png"
+          ],
+          "src": [
+            "card/card_back@0.5x.png",
+            "card/card_back.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
             "card/card_tab.png",
             "card_tab.png"
           ],
@@ -262,6 +277,21 @@
         },
         {
           "alias": [
+            "card/mini_card_back.png",
+            "mini_card_back.png"
+          ],
+          "src": [
+            "card/mini_card_back@0.5x.png",
+            "card/mini_card_back.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
             "card/modal.png",
             "modal.png"
           ],
@@ -283,6 +313,21 @@
           "src": [
             "card/nano_card@0.5x.png",
             "card/nano_card.png"
+          ],
+          "data": {
+            "tags": {
+              "m": true
+            }
+          }
+        },
+        {
+          "alias": [
+            "card/nano_card_back.png",
+            "nano_card_back.png"
+          ],
+          "src": [
+            "card/nano_card_back@0.5x.png",
+            "card/nano_card_back.png"
           ],
           "data": {
             "tags": {

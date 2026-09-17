@@ -3,7 +3,7 @@ import { TableNetwork } from './TableNetwork';
 import { TableState, type AddHandOpts, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
 import { Hand } from './models/Hand';
 import { Pile } from './models/Pile';
-import { TilingSprite, type Application, type Bounds, type Container, type FederatedPointerEvent, Point } from 'pixi.js';
+import { TilingSprite, type Application, type Bounds, type Container, type FederatedPointerEvent, Point, RenderLayer } from 'pixi.js';
 import { PileSprite } from './sprites/PileSprite';
 import type { PointerEventSprite } from './sprites/PointerEventSprite';
 import { OwnHandSprite } from './sprites/OwnHandSprite';
@@ -13,6 +13,15 @@ import { TableBackgroundSprite } from './sprites/TableBackgroundSprite';
 import { Filters } from './util/Filters';
 import { randomId } from './util/Utilities';
 import { OtherHandSprite } from './sprites/OtherHandSprite';
+
+interface RenderLayers {
+    // Table layer
+    tableLayer: RenderLayer,
+    // Layer above the table for grabbed entities
+    floatingLayer: RenderLayer,
+    // Topmost layer for UI elements
+    uiLayer: RenderLayer,
+}
 
 // Graphics/UI layer. Renders based on the underlying TableState. Communicates user actions to TableNetwork.
 export class TableShell {
@@ -27,6 +36,7 @@ export class TableShell {
     public backgroundSprite: TilingSprite;
     public worldOffset: Point;
     private bgDragging: boolean = false;
+    private renderLayers: RenderLayers;
 
     static async initialize(app: Application): Promise<TableShell> {
         const tableState = new TableState();
@@ -44,6 +54,11 @@ export class TableShell {
         this.backgroundSprite = new TableBackgroundSprite(this.app.renderer.width, this.app.renderer.height);
         // Opinionated default offset
         this.worldOffset = new Point((this.app.renderer.width - 100) / 2, -(this.app.renderer.height * 0.8 - 132) / 2);
+        this.renderLayers = {
+            tableLayer: new RenderLayer(),
+            floatingLayer: new RenderLayer(),
+            uiLayer: new RenderLayer()
+        };
 
         tableNetwork.tableCall({
             methodName: "addDeck",
@@ -85,23 +100,42 @@ export class TableShell {
         };
 
         tableState.onMoveCards = (opts: MoveCardsOpts) => {
-            // const fromSprite = this.spriteEntities.get(opts.fromId);
-            // const toSprite = this.spriteEntities.get(opts.toId);
-            // if (fromSprite) {
-            //     fromSprite.redraw(this);
-            // }
-            // if (toSprite) {
-            //     toSprite.redraw(this);
-            // }
-            this.initFromState();
+            const fromSprite = this.spriteEntities.get(opts.fromId);
+            const toSprite = this.spriteEntities.get(opts.toId);
+            if (fromSprite) {
+                fromSprite.redraw(this);
+            }
+            if (toSprite) {
+                toSprite.redraw(this);
+            }
         }
 
         tableState.onMoveCardsToNewPile = (opts: MoveCardsToNewPileOpts) => {
-            this.initFromState();
+            const fromSprite = this.spriteEntities.get(opts.fromId);
+            const newPile = this.tableState.entities.get(opts.newId);
+            if (newPile && Pile.isPile(newPile)) {
+                this.addPile(opts.newId, newPile);
+                if (fromSprite) {
+                    fromSprite.redraw(this);
+                }
+            } else {
+                console.error("New pile not found in TableState!");
+            }
         }
 
         tableState.onAddHand = (opts: AddHandOpts) => {
-            this.initFromState();
+            const newHand = this.tableState.entities.get(opts.playerId);
+            const handSprites: OtherHandSprite[] = []
+            if (newHand && Hand.isHand(newHand)) {
+                const newHandSprite = this.addOtherHand(newHand);
+                handSprites.push(newHandSprite);
+                for (let sprite of this.spriteEntities.values()) {
+                    if (OtherHandSprite.isOtherHandSprite(sprite)) {
+                        handSprites.push(sprite);
+                    }
+                }
+            }
+            this.repositionOtherHandSprites(handSprites);
         }
 
         this.tableNetwork.tableShell = this;
@@ -138,26 +172,31 @@ export class TableShell {
         this.app.stage.addChild(this.backgroundSprite);
 
         this.redrawEntities();
+
+        this.app.stage.addChild(this.renderLayers.tableLayer);
+        this.app.stage.addChild(this.renderLayers.uiLayer);
+        this.app.stage.addChild(this.renderLayers.floatingLayer);
     }
 
     public redrawEntities() {
         // Iterate through state entities.
         // We need to know how many other hands there are to render them, so collect them and pass them
         // together.
-        const otherHands: Hand[] = [];
+        const otherHandSprites: OtherHandSprite[] = [];
         for (let entityId of this.tableState.entities.keys()) {
             const entity = this.tableState.entities.get(entityId)!;
             if (Hand.isHand(entity)) {
                 if (entityId === this.tableNetwork.myself.id) {
                     this.addOwnHand(entity);
                 } else {
-                    otherHands.push(entity);
+                    otherHandSprites.push(this.addOtherHand(entity));
                 }
             } else if (Pile.isPile(entity)) {    
                 this.addPile(entityId, entity);
             }
         }
-        this.addOtherHands(otherHands);
+        this.repositionOtherHandSprites(otherHandSprites);
+        this.renderLayers.uiLayer.attach(this.sidePanel);
         this.app.stage.addChild(this.sidePanel);
     }
 
@@ -172,6 +211,7 @@ export class TableShell {
                     playerId: this.tableNetwork.myself.id,
                 }
             });
+            this.renderLayers.floatingLayer.attach(card);
         }
         card.onMove = (c: PointerEventSprite, event: FederatedPointerEvent) => {
             const screenPos = card.toGlobal({ x: event.movementX, y: event.movementY });
@@ -190,6 +230,7 @@ export class TableShell {
             }
         }
         card.onRelease = (c: PointerEventSprite, event: FederatedPointerEvent) => {
+            this.renderLayers.floatingLayer.detach(card);
             if (!this.triggerPointerIntersections(event.globalX, event.globalY, card, false)) {
                 if (this.isInCardDropSquare(event.globalX, event.globalY)) {
                     const gridPos = this.fromScreenToGridPosition(event.globalX, event.globalY);
@@ -222,29 +263,37 @@ export class TableShell {
         }
     }
 
-    private addOwnHand(hand: Hand) {
+    private addOwnHand(hand: Hand): OwnHandSprite {
         const h = new OwnHandSprite(hand, this.app.renderer.width, this.app.renderer.height);
+        this.renderLayers.uiLayer.attach(h);
         this.app.stage.addChild(h);
         h.redraw(this);
         this.spriteEntities.set(hand.playerId, h);
+        return h;
     }
 
-    private addOtherHands(hands: Hand[]) {
-        const l = hands.length;
+    private addOtherHand(hand: Hand): OtherHandSprite {
+        // Render someone else's hand
+        const h = new OtherHandSprite(hand, "xs");
+        this.renderLayers.uiLayer.attach(h);
+        this.app.stage.addChild(h);
+        this.spriteEntities.set(hand.playerId, h);
+        return h;
+    }
+
+    private repositionOtherHandSprites(handSprites: OtherHandSprite[]) {
+        const l = handSprites.length;
         for (let i = 0; i < l; i++) {
-            const hand = hands[i]!;
-            // Render someone else's hand
-            const h = new OtherHandSprite(hand, "xs");
-            this.app.stage.addChild(h);
+            const h = handSprites[i]!;
             h.x = (i + 1) * this.app.renderer.width / (l + 1) - h.width / 2;
             h.y = 0;
             h.redraw(this);
-            this.spriteEntities.set(hand.playerId, h);
         }
     }
 
     private addPile(id: string, pile: Pile) {
         const p = new PileSprite(id, pile);
+        this.renderLayers.tableLayer.attach(p);
         this.app.stage.addChild(p);
         this.spriteEntities.set(id, p);
         const screenPos = this.fromGridToScreenPosition(pile.gridX, pile.gridY);

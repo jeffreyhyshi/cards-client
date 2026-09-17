@@ -89,7 +89,6 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
             }
             return this;
         }
-        
     }
 
     public reactRelease(table: TableShell, other: TableSprite) {
