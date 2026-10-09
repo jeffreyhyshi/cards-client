@@ -1,6 +1,6 @@
 import { type TableSprite } from './sprites/TableSprite';
 import { TableNetwork } from './TableNetwork';
-import { TableState, type AddHandOpts, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
+import { TableState, type AddHandOpts, type FlipCardOpts, type GrabbedCardPositionOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from './TableState';
 import { Hand } from './models/Hand';
 import { Pile } from './models/Pile';
 import { TilingSprite, type Application, type Bounds, type Container, type FederatedPointerEvent, Point, RenderLayer } from 'pixi.js';
@@ -8,7 +8,7 @@ import { PileSprite } from './sprites/PileSprite';
 import type { PointerEventSprite } from './sprites/PointerEventSprite';
 import { OwnHandSprite } from './sprites/OwnHandSprite';
 import { SidePanelSprite } from './ui/SidePanelSprite';
-import type { CardSprite } from './sprites/CardSprite';
+import { CardSprite } from './sprites/CardSprite';
 import { TableBackgroundSprite } from './sprites/TableBackgroundSprite';
 import { Filters } from './util/Filters';
 import { randomId } from './util/Utilities';
@@ -70,12 +70,21 @@ export class TableShell {
             opts: { playerId: this.tableNetwork.myself.id }
         })
 
+        tableState.onGrab = (opts: GrabOpts, grabbedEntity: TableStateEntity) => {
+            if (opts.playerId === this.tableNetwork.myself.id) {
+                this.sidePanel.setContext(opts, grabbedEntity);
+            }
+        }
+
         tableState.onRelease = (opts: ReleaseOpts, released: GrabOpts) => {
             // Return any loose cards to their previous owners
             // TODO: actual card moved states
             // TODO: animate release
             const p = this.spriteEntities.get(released.fromId);
-            p?.redraw(this);
+            p?.draw(this);
+            if (opts.playerId === this.tableNetwork.myself.id) {
+                this.sidePanel.setContext();
+            }
         }
 
         tableState.onGrabbedCardPosition = (opts: GrabbedCardPositionOpts) => {
@@ -83,6 +92,7 @@ export class TableShell {
             if (grabOpts) {
                 let spriteToMove = this.spriteEntities.get(grabOpts.fromId);
                 if (spriteToMove) {
+                    
                     if (grabOpts.indices) {
                         spriteToMove = spriteToMove.getCardSprite(grabOpts.indices) ?? spriteToMove;
                     }
@@ -103,10 +113,19 @@ export class TableShell {
             const fromSprite = this.spriteEntities.get(opts.fromId);
             const toSprite = this.spriteEntities.get(opts.toId);
             if (fromSprite) {
-                fromSprite.redraw(this);
+                // Check if this is a pile that has been deleted
+                if (this.tableState.entities.has(opts.fromId)) {
+                    fromSprite.draw(this);
+                } else {
+                    this.app.stage.removeChild(fromSprite);
+                    this.spriteEntities.delete(opts.fromId);
+                }
             }
             if (toSprite) {
-                toSprite.redraw(this);
+                toSprite.draw(this);
+            }
+            if (opts.playerId === this.tableNetwork.myself.id) {
+                this.sidePanel.setContext();
             }
         }
 
@@ -116,10 +135,19 @@ export class TableShell {
             if (newPile && Pile.isPile(newPile)) {
                 this.addPile(opts.newId, newPile);
                 if (fromSprite) {
-                    fromSprite.redraw(this);
+                    // Check if this is a pile that has been deleted
+                    if (this.tableState.entities.has(opts.fromId)) {
+                        fromSprite.draw(this);
+                    } else {
+                        this.app.stage.removeChild(fromSprite);
+                        this.spriteEntities.delete(opts.fromId);
+                    }
                 }
             } else {
                 console.error("New pile not found in TableState!");
+            }
+            if (opts.playerId === this.tableNetwork.myself.id) {
+                this.sidePanel.setContext();
             }
         }
 
@@ -127,15 +155,29 @@ export class TableShell {
             const newHand = this.tableState.entities.get(opts.playerId);
             const handSprites: OtherHandSprite[] = []
             if (newHand && Hand.isHand(newHand)) {
-                const newHandSprite = this.addOtherHand(newHand);
-                handSprites.push(newHandSprite);
                 for (let sprite of this.spriteEntities.values()) {
                     if (OtherHandSprite.isOtherHandSprite(sprite)) {
                         handSprites.push(sprite);
                     }
                 }
+                const newHandSprite = this.addOtherHand(newHand);
+                handSprites.push(newHandSprite);
             }
             this.repositionOtherHandSprites(handSprites);
+        }
+
+        tableState.onFlipCards = (opts: FlipCardOpts) => {
+            if (this.spriteEntities.has(opts.fromId)) {
+                const sprite = this.spriteEntities.get(opts.fromId)!;
+                if (opts.indices) {
+                    const cSprite = sprite.getCardSprite(opts.indices);
+                    if (cSprite && CardSprite.isCardSprite(cSprite)) {
+                        cSprite.animateRedraw(this);
+                        return;
+                    }
+                }
+                sprite?.draw(this);
+            }
         }
 
         this.tableNetwork.tableShell = this;
@@ -203,6 +245,16 @@ export class TableShell {
     public decorateCardBehavior(parent: TableSprite, card: CardSprite, index: number = 0) {
         card.draggable = true;
         card.onMoveStart = () => {
+            const prevGrabbed = this.tableState.grabbedEntities.get(this.tableNetwork.myself.id);
+            if (prevGrabbed && prevGrabbed.fromId !== parent.id) {
+                console.log("releasing")
+                this.tableNetwork.tableCall({
+                    methodName: "release",
+                    opts: {
+                        playerId: this.tableNetwork.myself.id,
+                    }
+                });
+            }
             this.tableNetwork.committedTableCall({
                 methodName: "grab",
                 opts: {
@@ -212,7 +264,7 @@ export class TableShell {
                 }
             });
             this.renderLayers.floatingLayer.attach(card);
-        }
+        };
         card.onMove = (c: PointerEventSprite, event: FederatedPointerEvent) => {
             const screenPos = card.toGlobal({ x: event.movementX, y: event.movementY });
             // TODO: Animate partial drag/drop snapping
@@ -228,7 +280,7 @@ export class TableShell {
             } else {
                 c.rotation = Math.PI / 36;
             }
-        }
+        };
         card.onRelease = (c: PointerEventSprite, event: FederatedPointerEvent) => {
             this.renderLayers.floatingLayer.detach(card);
             if (!this.triggerPointerIntersections(event.globalX, event.globalY, card, false)) {
@@ -257,17 +309,37 @@ export class TableShell {
                         }
                     });
                     // TODO: animate release
-                    parent.redraw(this);
+                    parent.draw(this);
                 }
             }
-        }
+        };
+        card.onTap = (c: PointerEventSprite, event: FederatedPointerEvent) => {
+            console.log("tapped")!
+            if (!this.tableState.grabbedEntities.has(this.tableNetwork.myself.id)) {
+                this.tableNetwork.committedTableCall({
+                    methodName: "grab",
+                    opts: {
+                        fromId: parent.id,
+                        indices: [index],
+                        playerId: this.tableNetwork.myself.id,
+                    }
+                });
+            } else {
+                this.tableNetwork.tableCall({
+                    methodName: "release",
+                    opts: {
+                        playerId: this.tableNetwork.myself.id,
+                    }
+                });
+            }
+        };
     }
 
     private addOwnHand(hand: Hand): OwnHandSprite {
         const h = new OwnHandSprite(hand, this.app.renderer.width, this.app.renderer.height);
         this.renderLayers.uiLayer.attach(h);
         this.app.stage.addChild(h);
-        h.redraw(this);
+        h.draw(this);
         this.spriteEntities.set(hand.playerId, h);
         return h;
     }
@@ -287,7 +359,7 @@ export class TableShell {
             const h = handSprites[i]!;
             h.x = (i + 1) * this.app.renderer.width / (l + 1) - h.width / 2;
             h.y = 0;
-            h.redraw(this);
+            h.draw(this);
         }
     }
 
@@ -300,7 +372,7 @@ export class TableShell {
         // Offset to center the pile
         p.x = screenPos.x + 10;
         p.y = -screenPos.y + 10;
-        p.redraw(this);
+        p.draw(this);
     }
 
     // Provides a list of entities that the cursor position is currently intersecting
@@ -315,10 +387,7 @@ export class TableShell {
             if (bounds.containsPoint(screenX, screenY)) {
                 const entity = this.spriteEntities.get(id)
                 if (entity) {
-                    if (isHover && entity.reactHover) {
-                        entity.reactHover(this, grabbed);
-                        return true;
-                    } else if (entity.reactRelease) {
+                    if (entity.reactRelease) {
                         entity.reactRelease(this, grabbed);
                         return true;
                     }

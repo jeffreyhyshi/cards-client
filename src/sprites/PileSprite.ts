@@ -1,103 +1,87 @@
 import { Sprite, Texture } from 'pixi.js'
-import type { TableShell } from '../TableShell';
 import type { Pile } from '../models/Pile';
 import { CardSprite } from './CardSprite';
 import type { TableSprite } from './TableSprite';
+import type { TableEngine } from '../TableEngine';
+import type { TableStateEntity } from '../TableState';
 
 // Sprite representing a pile of cards.
 // Contains card backgrounds and CardSprites as necessary
 export class PileSprite extends Sprite implements TableSprite {
     public type: "pile" = "pile";
     public id: string;
-    public pile: Pile;
+    public entity: TableStateEntity;
 
-    // TODO: Fix the interface here so that we can arbitrarily "pick up" a sprite representing the top N cards
     public topCardSprite?: CardSprite;
-    public nextCardSprite?: CardSprite;
     public pileSprites: Sprite[] = [];
 
     static isPileSprite(s: TableSprite): s is PileSprite {
         return s.type === "pile";
     }
 
-    constructor(entityId: string, pile: Pile) {
+    constructor(entityId: string, entity: TableStateEntity) {
         super();
         this.id = entityId;
-        this.pile = pile;
+        this.entity = entity;
     }
 
-    public redraw(table: TableShell) {
+    public draw(table: TableEngine) {
         this.removeChildren();
 
         this.pileSprites = [];
         // For every five cards remaining in the pile, draw a stacked "card" to indicate quantity
         let i = 0;
-        for (; i < Math.floor(this.pile.cards.length / 10); i++) {
+        for (; i < Math.floor(this.entity.cards.length / 10); i++) {
             let pileSprite = new Sprite(Texture.from('card.png'));
             this.addChild(pileSprite);
             pileSprite.x = -3 * i;
             pileSprite.y = -3 * i;
-            this.pileSprites.splice(0, 0, pileSprite);
+            this.pileSprites.push(pileSprite);
         }
-        if (this.pile.cards.length > 0) {            
-            if (this.pile.cards.length > 1) {
-                this.nextCardSprite = new CardSprite(this.id, this.pile.cards[1]!);
-                this.addChild(this.nextCardSprite);
-                this.nextCardSprite.x = -3 * i;
-                this.nextCardSprite.y = -3 * i;
-                this.nextCardSprite.index = 1;
-            }
-            this.topCardSprite = new CardSprite(this.id, this.pile.cards[0]!);
+        if (this.entity.cards.length > 0) {
+            this.topCardSprite = new CardSprite(this.id, this.entity.cards[0]!);
             this.addChild(this.topCardSprite);
             this.topCardSprite.x = -3 * i;
             this.topCardSprite.y = -3 * i;
             this.topCardSprite.index = 0;
         }
         if (this.topCardSprite) {
-            table?.decorateCardBehavior(this, this.topCardSprite);
+            table.decorateCardBehavior(this.topCardSprite);
         }
     }
 
-    public reactRelease(table: TableShell, other: TableSprite) {
-        if (CardSprite.isCardSprite(other)) {
-            console.log("PileSprite.reactRelease");
-            console.log(other);
-            console.log(this);
-            console.log("current table ents: ")
-            console.log(table.spriteEntities)
-
-            table.tableNetwork.tableCall({
-                methodName: "moveCards",
-                opts: {
-                    playerId: table.tableNetwork.myself.id,
-                    fromId: other.id,
-                    toId: this.id,
-                    indices: [other.index ?? 0]
-                }
-            });
-            other.id = this.id;
-        }
-    };
-
-    public reactHover(table: TableShell, other: TableSprite) {
-
-    }
-
-    public getCardSprite(indices: number[]): TableSprite | undefined {
-        if (indices.length === 1 && indices[0] === 0 && this.topCardSprite) {
+    public getCardSprite(index: number): CardSprite | undefined {
+        if (index === 0 && this.topCardSprite) {
             return this.topCardSprite;
         } else {
-            // TODO: Fix behavior for multi-card selection
-            const result: CardSprite[] = []
-            for (let i = 0; i < indices.length; i++) {
-                const index = indices[i];
-                if (index && index === 0 && this.topCardSprite) {
-                    result.push(this.topCardSprite);
-                } else if (index && index === 0 && this.nextCardSprite) {
-                    result.push(this.nextCardSprite);
-                }
-            }
-            return this;
+            return;
         }
+    }
+
+    // Splits this PileSprite into two PileSprites, with the returned PileSprite representing
+    // the cards from 0 - (endIndex - 1), and the current PileSprite representing the cards
+    // from endIndex to pile.cards.length. Used for the PileCardFlipAnimation.
+    // Takes advantage of the fact that this will be reset after each frame.
+    public splitPileSpriteByRange(endIndex: number, tableEngine: TableEngine): PileSprite | undefined {
+        if (endIndex > 0 && endIndex < this.entity.cards.length) {
+            const bottomHalfPile: TableStateEntity = {
+                type: "pile",
+                cards: this.entity.cards.slice(endIndex, this.entity.cards.length)
+            }
+            const topHalfPile: TableStateEntity = {
+                type: "pile",
+                cards: this.entity.cards.slice(0, endIndex)
+            }
+            this.entity = bottomHalfPile;
+            this.draw(tableEngine);
+            const topHalfPileSprite = new PileSprite("temp", topHalfPile);
+            this.addChild(topHalfPileSprite);
+            if (this.topCardSprite) {
+                topHalfPileSprite.x = this.topCardSprite.x + 3;
+                topHalfPileSprite.y = this.topCardSprite.y + 3;
+            }
+            topHalfPileSprite.draw(tableEngine);
+        }
+        return;
     }
 }

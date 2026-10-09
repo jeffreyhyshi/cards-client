@@ -47,7 +47,7 @@ interface TableConfirmation {
 
 interface SerializedTableState {
     entities: Record<string, TableStateEntity>
-    grabbedEntities: Record<string, GrabOpts>
+    grabbed: Record<string, string>
 }
 
 interface TableConnectionData {
@@ -137,7 +137,10 @@ export class TableNetwork {
         });
         // Check for others connecting to us. We are the "host"; send the current list of players at the table.
         this.myself.on("connection", (conn) => {
+            console.log("connection but not open")
             conn.on("open", () => {
+                console.log("opened connection")
+
                 const connData: TableConnectionData = {
                     tableId: this.tableId!,
                     tableState: this.serializeTableState(),
@@ -195,9 +198,12 @@ export class TableNetwork {
 
     // Send a request to the "host" peer, wait for the response telling us how to update our table.
     public connectToPeerTable(peerId: string): void {
+        console.log("attemting connectToPeerTable")
         if (!this.myself.disconnected && peerId && !this.players.has(peerId) && TableNetwork.PEER_ID_REGEX.test(peerId)) {
             const conn = this.myself.connect(peerId);
             conn.on("open", () => {
+                console.log("conn open")
+
                 conn.on("data", this.handleData.bind(this));
                 this.players.set(conn.peer, conn);
             });
@@ -299,7 +305,7 @@ export class TableNetwork {
                 this.players.clear();
 
                 this.tableState.entities = new Map(Object.entries(data.tableState.entities));
-                this.tableState.grabbedEntities = new Map(Object.entries(data.tableState.grabbedEntities));
+                this.tableState.grabbed = new Map(Object.entries(data.tableState.grabbed));
             }
             for (const peerId of data.playerIds) {
                 if (!this.players.has(peerId) && this.myself.id !== peerId) {
@@ -322,7 +328,7 @@ export class TableNetwork {
     private serializeTableState(): SerializedTableState {
         return {
             entities: Object.fromEntries(this.tableState.entities),
-            grabbedEntities: Object.fromEntries(this.tableState.grabbedEntities)
+            grabbed: Object.fromEntries(this.tableState.grabbed)
         }
     }
 }

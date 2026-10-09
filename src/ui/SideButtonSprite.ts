@@ -2,7 +2,7 @@ import { BitmapText, NineSliceSprite, Sprite, Texture } from "pixi.js";
 
 export interface SideButtonSpriteOptions {
     type: "card" | "table";
-    iconSprite?: Sprite;
+    iconSprite: Sprite;
     labelText: string;
 }
 
@@ -20,11 +20,11 @@ export class SideButtonSprite extends NineSliceSprite {
             height: 64,
             width: 64
         });
-        this.iconSprite = opt.iconSprite ?? new Sprite(Texture.from("download.png"));
+        this.iconSprite = opt.iconSprite;
         this.addChild(this.iconSprite);
         this.iconSprite.height = 32;
         this.iconSprite.width = 32;
-        this.iconSprite.x = 21;
+        this.iconSprite.x = 20;
         this.iconSprite.y = 10
         this.text = new BitmapText({
             text: opt.labelText,

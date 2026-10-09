@@ -4,6 +4,7 @@ import type { ResizableSprite } from './ResizableSprite';
 import type { TableSprite } from './TableSprite';
 import { Hand } from '../models/Hand';
 import { CardSprite } from './CardSprite';
+import type { TableEngine } from '../TableEngine';
 
 export class OwnHandSprite extends Container implements TableSprite, ResizableSprite {
     public type: "ownhand" = "ownhand";
@@ -31,7 +32,7 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
         this.hand = hand;
     }
 
-    public redraw(table: TableShell) {
+    public draw(table: TableEngine) {
         this.removeChildren();
 
         this.y = this.screenHeight * 0.8;
@@ -69,44 +70,13 @@ export class OwnHandSprite extends Container implements TableSprite, ResizableSp
             cardSprite.x = (i + 1) * this.screenWidth / (l + 1) - cardSprite.width / 2;
             cardSprite.y = 24;
             cardSprite.index = i;
-            table?.decorateCardBehavior(this, cardSprite, i);
+            table.decorateCardBehavior(cardSprite, i);
             this.cardSprites.push(cardSprite);
         }
     }
 
-    public getCardSprite(indices: number[]): TableSprite | undefined {
-        if (indices.length === 1) {
-            const index = indices[0]!;
-            return this.cardSprites[index];
-        } else {
-            // TODO: Fix behavior for multi-card selection
-            const result = []
-            for (let i = 0; i < indices.length; i++) {
-                const index = indices[i];
-                if (index && this.cardSprites[index]) {
-                    result.push(this.cardSprites[index]);
-                }
-            }
-            return this;
-        }
-    }
-
-    public reactRelease(table: TableShell, other: TableSprite) {
-        if (CardSprite.isCardSprite(other)) {
-            table.tableNetwork.tableCall({
-                methodName: "moveCards",
-                opts: {
-                    playerId: table.tableNetwork.myself.id,
-                    fromId: other.id,
-                    toId: this.id,
-                    indices: [other.index ?? 0]
-                }
-            });
-            other.id = this.id;
-        }
-    };
-
-    public reactHover(table: TableShell, other: TableSprite) {
+    public getCardSprite(index: number): CardSprite | undefined {
+        return this.cardSprites[index];
     }
 
     public onResize(width: number, height: number) {

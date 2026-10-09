@@ -17,10 +17,14 @@ export type compactCard = `${Rank},${Suit}`
 
 export type JokerRank = 0 | 1 | 2;
 
+export type Position = {x: number, y: number};
+
 export class Card {
     public joker: JokerRank;
     public suit: Suit;
     public rank: Rank;
+    public faceUp: boolean = true;
+    public position: Position | undefined;
 
     static smallJoker(): Card {
         let result: Card = new Card(Suits.Spades, 1);

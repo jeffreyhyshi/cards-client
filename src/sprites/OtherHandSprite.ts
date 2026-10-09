@@ -3,6 +3,10 @@ import type { TableSprite } from "./TableSprite";
 import type { TableShell } from "../TableShell";
 import type { Hand } from "../models/Hand";
 import { CardSprite } from "./CardSprite";
+import type { Card } from "../models/Card";
+import { MiniCardSprite } from "./MiniCardSprite";
+import { MicroCardSprite } from "./MicroCardSprite";
+import type { TableEngine } from "../TableEngine";
 
 export type OtherHandSpriteSize = "s" | "xs";
 
@@ -13,10 +17,6 @@ export class OtherHandSprite extends Container implements TableSprite {
 
     public get size(): OtherHandSpriteSize {
         return this._size;
-    }
-    public set size(s: OtherHandSpriteSize) {
-        this._size = s;
-        this.redraw();
     }
 
     private barNineSliceSprite?: NineSliceSprite;
@@ -34,7 +34,7 @@ export class OtherHandSprite extends Container implements TableSprite {
         this._size = size;
     }
 
-    public redraw(table?: TableShell) {
+    public draw(table: TableEngine) {
         this.removeChildren();
 
         this.cardSprites = [];
@@ -42,12 +42,12 @@ export class OtherHandSprite extends Container implements TableSprite {
         const l = this.hand.cards.length;
         for (let i = 0; i < l; i++) {
             let card = this.hand.cards[i]!;
-            let cardSprite = new CardSprite(this.id, card, this._size);
+            let cardSprite = this.sizedSprite(this.id, card);
             this.addChild(cardSprite);
             cardSprite.x = startX + i * this.cardWidth();
             cardSprite.y = 0;
             cardSprite.index = i;
-            table?.decorateCardBehavior(this, cardSprite, i);
+            table.decorateCardBehavior(cardSprite, i);
             this.cardSprites.push(cardSprite);
         }
 
@@ -71,6 +71,14 @@ export class OtherHandSprite extends Container implements TableSprite {
         
     }
 
+    private sizedSprite(id: string, card: Card): CardSprite {
+        if (this._size == "s") {
+            return new MiniCardSprite(id, card);
+        } else {
+            return new MicroCardSprite(id, card);
+        }
+    }
+
     private cardWidth(): number {
         if (this._size === "s") {
             return 30;
@@ -89,40 +97,7 @@ export class OtherHandSprite extends Container implements TableSprite {
         return 0; // Unreachable
     }
 
-    public getCardSprite(indices: number[]): TableSprite | undefined {
-        if (indices.length === 1) {
-            const index = indices[0]!;
-            return this.cardSprites[index];
-        } else {
-            // TODO: Fix behavior for multi-card selection
-            const result = []
-            for (let i = 0; i < indices.length; i++) {
-                const index = indices[i];
-                if (index && this.cardSprites[index]) {
-                    result.push(this.cardSprites[index]);
-                }
-            }
-            return this;
-        }
-
+    public getCardSprite(index: number): CardSprite | undefined {
+        return this.cardSprites[index];
     }
-
-    public reactHover(table: TableShell, other: TableSprite) {
-
-    }
-
-    public reactRelease(table: TableShell, other: TableSprite) {
-        if (CardSprite.isCardSprite(other)) {
-            table.tableNetwork.tableCall({
-                methodName: "moveCards",
-                opts: {
-                    playerId: table.tableNetwork.myself.id,
-                    fromId: other.id,
-                    toId: this.id,
-                    indices: [other.index ?? 0]
-                }
-            });
-            other.id = this.id;
-        }
-    };
 }

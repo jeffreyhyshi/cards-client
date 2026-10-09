@@ -4,6 +4,8 @@ import { TableShell } from "./TableShell";
 import { recursiveResize } from "./util/Utilities";
 import { CardSprite } from "./sprites/CardSprite";
 import { Card, Suits } from "./models/Card";
+import { Filters } from "./util/Filters";
+import { TableEngine } from "./TableEngine";
 
 const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
 
@@ -27,19 +29,22 @@ const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
 
     Ticker.shared.minFPS = 60;
 
-    const tableShell = await TableShell.initialize(app);
+    const tableEngine = await TableEngine.initialize(app);
+    // testRender(app);
 
+    tableEngine.run();
     app.renderer.on('resize', (width, height) => {
         recursiveResize(app.stage, width, height);
     })
-
     setInterval(() => {
-        // console.log(tableShell.tableState);
+        console.log(tableEngine.tableState.entities);
     }, 2000)
 })();
 
 function testRender(app: Application) {
-    const miniCard = new CardSprite("card0", new Card(Suits.Spades, 10), "xs");
+    const miniCard = new CardSprite("card0", new Card(Suits.Spades, 10));
+
+    miniCard.filters = [Filters.oilSlickFilter(app)];
     app.stage.addChild(miniCard);
     // const waveFilter = Filter.from({
     //     gl: {

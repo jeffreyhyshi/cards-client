@@ -6,6 +6,7 @@ export class Pile implements TableStateEntity {
     public cards: Card[];
     public gridX: number;
     public gridY: number;
+    public fromId?: string;
 
     static isPile(o: TableStateEntity): o is Pile {
         return o.type === "pile";

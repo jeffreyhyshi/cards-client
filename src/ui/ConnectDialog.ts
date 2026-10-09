@@ -1,10 +1,10 @@
 import { Dialog, FancyButton, Input } from "@pixi/ui";
 import { BitmapText, Container, NineSliceSprite, TextStyle, Texture, TilingSprite } from "pixi.js";
-import type { TableShell } from "../TableShell";
+import type { TableEngine } from "../TableEngine";
 
 
 export class ConnectDialog extends Container {
-    static create(table: TableShell): ConnectDialog {
+    static create(table: TableEngine): ConnectDialog {
         let codeText = table.tableNetwork.tableId ? table.tableNetwork.tableId.toUpperCase() : 
             "??????";
 
