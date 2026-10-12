@@ -176,8 +176,10 @@ export class TableEngine {
         this.tableState.onFlipCards = (opts: FlipCardOpts, grabbedEntityId: string, grabbedEntity: TableStateEntity) => {
             if (LooseCards.isLooseCards(grabbedEntity)) {
                 this.animationQueue.push(new PileCardFlipAnimation(this, grabbedEntityId, grabbedEntity.from))
-            } else {
+            } else if (Pile.isPile(grabbedEntity)) {
                 this.animationQueue.push(new PileCardFlipAnimation(this, grabbedEntityId))
+            } else {
+                
             }
         }
     }
@@ -294,12 +296,6 @@ export class TableEngine {
                 // Otherwise do nothing and hang on to these cards.
                 if (grabbed && LooseCards.isLooseCards(grabbed) &&
                             this.tableState.entities.get(grabbed.from.fromId)) {
-                    this.tableNetwork.tableCall({
-                        methodName: "release",
-                        opts: {
-                            playerId: this.tableNetwork.myself.id,
-                        }
-                    });
                     this.tableNetwork.committedTableCall({
                         methodName: "grab",
                         opts: {

@@ -37,8 +37,11 @@ const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
         recursiveResize(app.stage, width, height);
     })
     setInterval(() => {
+        console.log("Entities: ");
         console.log(tableEngine.tableState.entities);
-    }, 2000)
+        console.log("Grabbed: ");
+        console.log(tableEngine.tableState.grabbed);
+    }, 3000)
 })();
 
 function testRender(app: Application) {

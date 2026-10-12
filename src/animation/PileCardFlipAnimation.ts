@@ -39,7 +39,7 @@ export class PileCardFlipAnimation implements TableAnimation<PileSprite> {
         } else {
             this.animatePartialPileFlip(sprite);
         }
-        this.completion += 0.05;
+        this.completion += 0.1;
     }
 
     private animateFullPileFlip(sprite: PileSprite) {

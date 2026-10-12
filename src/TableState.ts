@@ -85,8 +85,12 @@ export class TableState {
     // Actions which need to be conflict-resolved by TableNetwork before writing to state.
     public commit: TableCommitState = {
         // Grabs entities for a given player. Until release is called, this is assumed to be
-        // the source of any cards we're moving.
+        // the source of any cards we're moving. If grab is called for a player who's already grabbing something,
+        // release the existing grab before re-grabbing.
         grab: (opts: GrabOpts) => {
+            if (this.grabbed.has(opts.playerId)) {
+                this.release(opts);
+            }
             const from = this.entities.get(opts.fromId);
             if (from) {
                 if (opts.indices) {
