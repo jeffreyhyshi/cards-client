@@ -21,11 +21,11 @@ export class PileCardFlipAnimation implements TableAnimation<PileSprite> {
     }
 
     public selectTarget(tableEngine: TableEngine): PileSprite | undefined {
-        const grabbedEntity = tableEngine.spriteEntities.get(this.grabbedEntityId);
+        const grabbedEntity = tableEngine.sprites.get(this.grabbedEntityId);
         if (grabbedEntity && PileSprite.isPileSprite(grabbedEntity)) {
             return grabbedEntity;
         } else if (!grabbedEntity && this.grabbedFrom) {
-            const origPile = tableEngine.spriteEntities.get(this.grabbedFrom.fromId);
+            const origPile = tableEngine.sprites.get(this.grabbedFrom.fromId);
             if (origPile && PileSprite.isPileSprite(origPile)) {
                 return origPile;
             }

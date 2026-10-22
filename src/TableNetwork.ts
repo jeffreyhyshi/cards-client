@@ -47,7 +47,7 @@ interface TableConfirmation {
 
 interface SerializedTableState {
     entities: Record<string, TableStateEntity>
-    grabbed: Record<string, string>
+    grabbed: Record<string, TableCommitStateOpts>
 }
 
 interface TableConnectionData {
@@ -234,16 +234,21 @@ export class TableNetwork {
     // Handle initial receipt of a TableCommitCall
     private handleTableCommitCall(data: TableCommitCall) {
         if (this.conflicts.has(data.opts.fromId)) {
-            const mine: TablePending = this.conflicts.get(data.opts.fromId)!;
-            // Check that it's a real conflict, i.e. one of us is grabbing the entire entity
-            // or we're attempting to grab the same indices in the entity
-            // FIXME: probably want to make sure there's no overlap in the indices
-            const conf = !(mine.tableCall.opts.indices && data.opts.indices) ||
-                (mine.tableCall.opts.indices === data.opts.indices);
-            if (!conf || mine.tableCall.seed <= data.seed) {
-                // We lose, cede this conflicting call.
-                this.cedeCall(data, mine);
-            } // If we win, we do nothing and ignore this incoming message.
+            console.log("has conflict")
+            const conflict: TablePending = this.conflicts.get(data.opts.fromId)!;
+            if (conflict.tableCall.playerId !== data.playerId) {
+                console.log("has different pid")
+
+                if (conflict.tableCall.seed <= data.seed) {
+                    console.log("has losing seed")
+
+                    this.cedeCall(data, conflict);
+                } // Do nothing if this is a conflict between different players,
+                    // and the existing call has a higher seed.
+            } else {
+                console.log("has same pid")
+                this.cedeCall(data);
+            }
         } else {
             this.cedeCall(data);
         }
@@ -283,11 +288,15 @@ export class TableNetwork {
                     for (let player of this.players.values()) {
                         player.send(conf);
                     }
+                    this.pending.delete(data.callId);
+                    this.conflicts.delete(p.tableCall.opts.fromId);
                 }
             } else {
                 const m: TableFunction = this.tableState.commit[p.tableCall.methodName]
                     .bind(this.tableState) as TableFunction;
                 m(p.tableCall.opts);
+                this.pending.delete(data.callId);
+                this.conflicts.delete(p.tableCall.opts.fromId);
             }
         }
     }
@@ -305,7 +314,7 @@ export class TableNetwork {
                 this.players.clear();
 
                 this.tableState.entities = new Map(Object.entries(data.tableState.entities));
-                this.tableState.grabbed = new Map(Object.entries(data.tableState.grabbed));
+                this.tableState.grabbing = new Map(Object.entries(data.tableState.grabbed));
             }
             for (const peerId of data.playerIds) {
                 if (!this.players.has(peerId) && this.myself.id !== peerId) {
@@ -328,7 +337,7 @@ export class TableNetwork {
     private serializeTableState(): SerializedTableState {
         return {
             entities: Object.fromEntries(this.tableState.entities),
-            grabbed: Object.fromEntries(this.tableState.grabbed)
+            grabbed: Object.fromEntries(this.tableState.grabbing)
         }
     }
 }

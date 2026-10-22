@@ -15,6 +15,7 @@ import { LooseCards } from "./models/LooseCards";
 import type { TableAnimation } from "./animation/TableAnimation";
 import { PileCardFlipAnimation } from "./animation/PileCardFlipAnimation";
 import 'pixi.js/math-extras';
+import { HandCardFlipAnimation } from "./animation/HandCardFlipAnimation";
 
 interface RenderContainers {
     // Table layer
@@ -37,7 +38,7 @@ export class TableEngine {
     private backgroundSprite: TilingSprite;
     public sidePanel: SidePanelSprite;
     private bgDragging: boolean = false;
-    public spriteEntities: Map<string, TableSprite> = new Map();
+    public sprites: Map<string, TableSprite> = new Map();
 
     public worldOffset: Point;
 
@@ -46,7 +47,8 @@ export class TableEngine {
     public spriteMouseOffset?: Point;
     public pointerDownTime: number = 0;
     public pointerDownPosition?: Point;
-    public releaseOnTap: boolean = false;
+    public releaseOnTap: boolean;
+    public grabbedCardIndex?: number;
 
     private eventQueue: (() => void)[] = [];
     private animationQueue: TableAnimation<any>[] = [];
@@ -110,6 +112,7 @@ export class TableEngine {
 
         this.dragging = false;
         this.firstDrag = true;
+        this.releaseOnTap = false;
         this.app.stage.eventMode = "static";
         this.initPointerReleaseCallbacks();
         this.initTableStateCallbacks();
@@ -134,6 +137,12 @@ export class TableEngine {
             if (this.dragging) {
                 this.eventQueue.push(this.handleMoveFunct(event));
             }
+        })
+    }
+
+    public run() {
+        this.app.ticker.add((ticker) => {
+            this.drawTable();
         })
     }
 
@@ -173,23 +182,24 @@ export class TableEngine {
                 this.sidePanel.setContext();
             }
         }
-        this.tableState.onFlipCards = (opts: FlipCardOpts, grabbedEntityId: string, grabbedEntity: TableStateEntity) => {
+        this.tableState.onFlipCards = (opts: FlipCardOpts, grabbedEntityId: string,
+            grabbedEntity: TableStateEntity, indices?: number[]) => {
             if (LooseCards.isLooseCards(grabbedEntity)) {
                 this.animationQueue.push(new PileCardFlipAnimation(this, grabbedEntityId, grabbedEntity.from))
             } else if (Pile.isPile(grabbedEntity)) {
                 this.animationQueue.push(new PileCardFlipAnimation(this, grabbedEntityId))
-            } else {
-                
+            } else if (Hand.isHand(grabbedEntity) && indices) {
+                this.animationQueue.push(new HandCardFlipAnimation(grabbedEntityId, indices));
             }
         }
     }
 
     private getPointerIntersection(screenX: number, screenY: number, ignoreId?: string): string | undefined {
-        for (let id of this.spriteEntities.keys()) {
+        for (let id of this.sprites.keys()) {
             if (id === ignoreId) {
                 continue;
             }
-            let bounds = this.spriteEntities.get(id)!.getBounds(false);
+            let bounds = this.sprites.get(id)!.getBounds(false);
             if (bounds.containsPoint(screenX, screenY)) {
                 return id;
             }
@@ -199,14 +209,17 @@ export class TableEngine {
 
     private handlePointerDownFunct(intersectSprite: TableSprite, index: number, event: FederatedPointerEvent) {
         return () => {
+            console.log('handlePointerDownFunct called')
             this.pointerDownTime = Date.now();
-            this.pointerDownPosition = event.global;
+            this.pointerDownPosition = event.global.clone();
             this.spriteMouseOffset = intersectSprite.toLocal({ x: event.globalX, y: event.globalY });
+            this.grabbedCardIndex = index;
 
-            const grabbedId = this.tableState.grabbed.get(this.tableNetwork.myself.id);
-            if (grabbedId && grabbedId === intersectSprite.id) {
+            const grab = this.tableState.grabbing.get(this.tableNetwork.myself.id);
+            if (grab && grab.fromId === intersectSprite.id) {
                 this.releaseOnTap = true;
             } else {
+                this.releaseOnTap = false;
                 // Use the local position to know where on the sprite the pointer has grabbed it
                 const worldPos = this.fromScreenToWorldPosition(intersectSprite.toGlobal({ x: 0, y: 0 }));
                 this.tableNetwork.committedTableCall({
@@ -217,7 +230,8 @@ export class TableEngine {
                         indices: [index],
                         fromId: intersectSprite.id,
                         initialWorldX: worldPos.worldX,
-                        initialWorldY: worldPos.worldY
+                        initialWorldY: worldPos.worldY,
+                        selecting: true
                     }
                 });
             }
@@ -226,42 +240,69 @@ export class TableEngine {
 
     private handleMoveFunct(event: FederatedPointerEvent) {
         return () => {
-            let grabbedId = this.tableState.grabbed.get(this.tableNetwork.myself.id);
-            if (grabbedId && this.spriteMouseOffset) {
-                const spriteEntToMove = this.spriteEntities.get(grabbedId);
-                if (spriteEntToMove) {                    
-                    this.tableNetwork.tableCall({
-                        methodName: "grabbedCardPosition",
-                        opts: {
-                            ...this.fromScreenToWorldPosition(new Point(
-                                    event.globalX - this.spriteMouseOffset.x, 
+            let grab = this.tableState.grabbing.get(this.tableNetwork.myself.id);
+            if (grab && this.spriteMouseOffset &&
+                this.pointerDownPosition && this.distish(this.pointerDownPosition, event.global) > 20) {
+                if (this.firstDrag) {
+                    // Transform the currently grabbed entity into LooseCards
+                    const grabbedEntity = this.tableState.entities.get(grab.fromId);
+                    const grabbedSprite = this.sprites.get(grab.fromId);
+                    if (grabbedSprite && grabbedEntity && !LooseCards.isLooseCards(grabbedEntity)) {
+                        let positionSprite = grabbedSprite;
+                        if (typeof this.grabbedCardIndex !== 'undefined') {
+                            const ps = grabbedSprite.getCardSprite(this.grabbedCardIndex);
+                            positionSprite = ps ?? positionSprite;
+                        }
+                        this.spriteMouseOffset = positionSprite.toLocal({ x: event.globalX, y: event.globalY });
+                        const worldPos = this.fromScreenToWorldPosition(positionSprite.toGlobal({ x: 0, y: 0 }));
+                        this.tableNetwork.committedTableCall({
+                            methodName: "grab",
+                            opts: {
+                                playerId: this.tableNetwork.myself.id,
+                                newId: randomId(),
+                                fromId: grab.fromId,
+                                initialWorldX: worldPos.worldX,
+                                initialWorldY: worldPos.worldY,
+                                indices: grab.indices,
+                                selecting: false
+                            }
+                        })
+                    }
+                    this.firstDrag = false;
+                } else {
+                    const spriteEntToMove = this.sprites.get(grab.fromId);
+                    if (spriteEntToMove) {
+                        this.tableNetwork.tableCall({
+                            methodName: "grabbedCardPosition",
+                            opts: {
+                                ...this.fromScreenToWorldPosition(new Point(
+                                    event.globalX - this.spriteMouseOffset.x,
                                     event.globalY - this.spriteMouseOffset.y
                                 )),
-                            playerId: this.tableNetwork.myself.id
-                        }
-                    });
-                }
+                                playerId: this.tableNetwork.myself.id
+                            }
+                        });
+                    }
+                }   
             }
         };
     }
 
     private handleReleaseFunct(event: FederatedPointerEvent) {
         return () => {
+            console.log("in handleReleaseFunct");
             this.firstDrag = true;
-            const grabbedId = this.tableState.grabbed.get(this.tableNetwork.myself.id);
+            const grab = this.tableState.grabbing.get(this.tableNetwork.myself.id);
             // Check that this is not a tap event.
             if (Date.now() - this.pointerDownTime > 250 &&
-                this.pointerDownPosition && this.pointerDownPosition.dot(event.global) > 50) {
-                if (grabbedId) {
-                    const intersectingId = this.getPointerIntersection(event.globalX, event.globalY, grabbedId);
+                this.pointerDownPosition && this.distish(this.pointerDownPosition, event.global) > 20) {
+                if (grab) {
+                    const intersectingId = this.getPointerIntersection(event.globalX, event.globalY, grab.fromId);
                     if (intersectingId) {
-                        this.tableNetwork.tableCall({
-                            methodName: "moveCards",
-                            opts: {
-                                playerId: this.tableNetwork.myself.id,
-                                toId: intersectingId
-                            }
-                        });
+                        const intersectingSprite = this.sprites.get(intersectingId);
+                        if (intersectingSprite && intersectingSprite.onDragRelease) {
+                            intersectingSprite.onDragRelease(this, event);
+                        }
                     } else if (this.isInCardDropSquare(event.globalX, event.globalY)) {
                         const gridPos = this.fromScreenToGridPosition(event.globalX, event.globalY);
                         this.tableNetwork.tableCall({
@@ -282,39 +323,33 @@ export class TableEngine {
                         });
                     }
                 }
-            } else if (this.releaseOnTap) {
-                this.tableNetwork.tableCall({
-                    methodName: "release",
-                    opts: {
-                        playerId: this.tableNetwork.myself.id,
-                    }
-                });
-                this.releaseOnTap = false;
-            } else if (grabbedId) {
-                const grabbed = this.tableState.entities.get(grabbedId);
-                // If these LooseCards are from some identifiable origin, grab the origin.
-                // Otherwise do nothing and hang on to these cards.
+            } else if (grab && typeof this.grabbedCardIndex !== 'undefined') {
+                // Tap event case
+                const grabbed = this.tableState.entities.get(grab.fromId);
+                const grabbedSprite = this.sprites.get(grab.fromId);
+                // If these are LooseCards from some extant origin, call the origin's
+                // onTapRelease. Otherwise, attempt to call this entity's onTapRelease
                 if (grabbed && LooseCards.isLooseCards(grabbed) &&
-                            this.tableState.entities.get(grabbed.from.fromId)) {
-                    this.tableNetwork.committedTableCall({
-                        methodName: "grab",
-                        opts: {
-                            playerId: this.tableNetwork.myself.id,
-                            newId: randomId(),
-                            fromId: grabbed.from.fromId,
-                            initialWorldX: grabbed.from.initialWorldX,
-                            initialWorldY: grabbed.from.initialWorldY
-                        }
-                    });
+                    this.sprites.has(grabbed.from.fromId)) {
+                    const grabbedFromSprite = this.sprites.get(grabbed.from.fromId);
+                    if (grabbedFromSprite && grabbedFromSprite.onTapRelease) {
+                        grabbedFromSprite.onTapRelease(this, event, this.releaseOnTap, this.grabbedCardIndex);
+                    }
+                } else if (grabbedSprite && grabbedSprite.onTapRelease) {
+                    grabbedSprite.onTapRelease(this, event, this.releaseOnTap, this.grabbedCardIndex);
                 }
+            }
+            if (this.releaseOnTap) {
+                this.releaseOnTap = false;
             }
             delete this.spriteMouseOffset;
             delete this.pointerDownPosition;
+            delete this.grabbedCardIndex;
         }
     }
 
     private drawTable() {
-        this.spriteEntities.clear();
+        this.sprites.clear();
         this.renderContainers.floatingContainer.removeChildren();
         this.renderContainers.tableContainer.removeChildren();
         this.renderContainers.handContainer.removeChildren();
@@ -327,7 +362,7 @@ export class TableEngine {
         this.placeEntities();
 
         // Draw entities
-        for (let entity of this.spriteEntities.values()) {
+        for (let entity of this.sprites.values()) {
             entity.draw(this);
         }
 
@@ -378,7 +413,7 @@ export class TableEngine {
     private addOwnHand(hand: Hand): OwnHandSprite {
         const h = new OwnHandSprite(hand, this.app.renderer.width, this.app.renderer.height);
         this.renderContainers.handContainer.addChild(h);
-        this.spriteEntities.set(hand.playerId, h);
+        this.sprites.set(hand.playerId, h);
         return h;
     }
     
@@ -386,7 +421,7 @@ export class TableEngine {
         // Render someone else's hand
         const h = new OtherHandSprite(hand, "xs");
         this.renderContainers.handContainer.addChild(h);
-        this.spriteEntities.set(hand.playerId, h);
+        this.sprites.set(hand.playerId, h);
         return h;
     }
 
@@ -402,7 +437,7 @@ export class TableEngine {
     private addLooseCards(id: string, looseCards: LooseCards) {
         const p = new PileSprite(id, looseCards);
         this.renderContainers.floatingContainer.addChild(p);
-        this.spriteEntities.set(id, p);
+        this.sprites.set(id, p);
         const screenPos = this.fromWorldToScreenPosition(looseCards);
         p.x = screenPos.x;
         p.y = screenPos.y;
@@ -411,16 +446,14 @@ export class TableEngine {
     private addPile(id: string, pile: Pile) {
         const p = new PileSprite(id, pile);
         this.renderContainers.tableContainer.addChild(p);
-        this.spriteEntities.set(id, p);
+        this.sprites.set(id, p);
         const screenPos = this.fromGridToScreenPosition(pile.gridX, pile.gridY);
         // Offset to center the pile
         p.x = screenPos.x + 10;
         p.y = screenPos.y + 10;
     }
 
-    
-
-    private fromScreenToWorldPosition(screenPos: Point): {worldX: number, worldY: number} {
+    public fromScreenToWorldPosition(screenPos: Point): {worldX: number, worldY: number} {
         return {
             worldX: screenPos.x - this.worldOffset.x,
             worldY: screenPos.y + this.worldOffset.y
@@ -447,9 +480,9 @@ export class TableEngine {
         return modX >= 10 && modX <= 80 && modY >= 10 && modY <= 112;
     }
 
-    public run() {
-        this.app.ticker.add((ticker) => {
-            this.drawTable();
-        })
+    private distish(a: Point, b: Point): number {
+        const xd = b.x - a.x;
+        const yd = b.y - a.y;
+        return (xd * xd) + (yd * yd);
     }
 }

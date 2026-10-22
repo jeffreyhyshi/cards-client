@@ -36,7 +36,19 @@ export function flipCardSprite(sprite: CardSprite, completion: number) {
             toHide.visible = false;
             toShow.visible = true;
         }
-        toHide.scale.x = Math.max(0, 1 - completion / 0.5);
-        toShow.scale.x = Math.min(1, completion / 0.5);
+        toHide.scale.x = Math.max(0, 1 - completion * 2);
+        toShow.scale.x = Math.min(1, 2 * completion - 1);
+    }
+}
+
+const INT_MAX = 2147483647;
+
+export function mulberry32(a1: number) {
+    let a = INT_MAX * a1;
+    return function () {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
 }

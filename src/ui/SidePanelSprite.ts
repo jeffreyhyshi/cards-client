@@ -9,9 +9,10 @@ import { VerticalList } from "../sprites/VerticalList";
 import type { TableNetwork } from "../TableNetwork";
 import type { TableEngine } from "../TableEngine";
 import { Pile } from "../models/Pile";
+import { mulberry32 } from "../util/Utilities";
 
 // Internal type for caching panel configurations
-type ButtonContext = "connect" | "flip";
+type ButtonContext = "connect" | "flip" | "shuffle";
 type PanelContext = "global" | "pile" | "hand_card" | "hand_cards";
 const PANEL_BUTTON_SPACING = 10;
 const PANEL_BUTTON_ORIENTATION = "right";
@@ -74,49 +75,74 @@ export class SidePanelSprite extends Container implements ResizableSprite {
         return button;
     }
 
-    private flipPileButton(grabbed: GrabOpts, grabbedEntity: TableStateEntity): FancyButton {
-        let button;
+    private flipPileButton(): FancyButton {
         if (this.cachedButtons.has("flip")) {
-            button = this.cachedButtons.get("flip")!;
+            return this.cachedButtons.get("flip")!;
         } else {
-            button = new FancyButton({
+           let button = new FancyButton({
                 defaultView: new SideButtonSprite({
                     type: "card",
                     labelText: "Flip",
                     iconSprite: new Sprite(Texture.from("flip.png")),
                 })
             });
+            button.onPress.connect(() => {
+                this.tableNetwork.tableCall({
+                    methodName: "flipCards",
+                    opts: {
+                        playerId: this.tableNetwork.myself.id,
+                        together: true
+                    }
+                });
+            })
             this.cachedButtons.set("flip", button);
+            return button;
         }
+    }
 
-        button.onPress.disconnectAll();
-        button.onPress.connect(() => {
-            this.tableNetwork.tableCall({
-                methodName: "flipCards",
-                opts: {
-                    playerId: this.tableNetwork.myself.id,
-                    together: true
-                }
+    private shuffleButton(): FancyButton {
+        let button;
+        if (this.cachedButtons.has("shuffle")) {
+            return this.cachedButtons.get("shuffle")!;
+        } else {
+            let button = new FancyButton({
+                defaultView: new SideButtonSprite({
+                    type: "card",
+                    labelText: "Shuffle",
+                    iconSprite: new Sprite(Texture.from("shuffle.png")),
+                })
             });
-        })
-
-        return button;
+            button.onPress.connect(() => {
+                this.tableNetwork.tableCall({
+                    methodName: "shuffleCards",
+                    opts: {
+                        playerId: this.tableNetwork.myself.id,
+                        seed: Math.random()
+                    }
+                })
+            })
+            this.cachedButtons.set("shuffle", button);
+            return button;
+        }
     }
 
     private globalPanel(): VerticalList {
         if (!this.cachedPanels.has("global")) {
             const globalPanel = new VerticalList(PANEL_BUTTON_SPACING, PANEL_BUTTON_ORIENTATION);
             globalPanel.addChild(this.connectButton());
+            this.cachedPanels.set("global", globalPanel);
             return globalPanel;
         } else {
             return this.cachedPanels.get("global")!;
         }
     }
 
-    private pileContextPanel(grabbed: GrabOpts, grabbedEntity: TableStateEntity): VerticalList {
+    private pileContextPanel(): VerticalList {
         if (!this.cachedPanels.has("pile")) {
             const pilePanel = new VerticalList(PANEL_BUTTON_SPACING, PANEL_BUTTON_ORIENTATION);
-            pilePanel.addChild(this.flipPileButton(grabbed, grabbedEntity));
+            pilePanel.addChild(this.flipPileButton());
+            pilePanel.addChild(this.shuffleButton());
+            this.cachedPanels.set("pile", pilePanel);
             return pilePanel;
         } else {
             return this.cachedPanels.get("pile")!;
@@ -129,7 +155,7 @@ export class SidePanelSprite extends Container implements ResizableSprite {
             this.activePanel = this.globalPanel();
         } else if (grabbed && grabbedEntity) {
             this.activeContext = "pile";
-            this.activePanel = this.pileContextPanel(grabbed, grabbedEntity);
+            this.activePanel = this.pileContextPanel();
         }
     }
 

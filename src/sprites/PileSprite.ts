@@ -1,9 +1,9 @@
-import { Sprite, Texture } from 'pixi.js'
-import type { Pile } from '../models/Pile';
+import { FederatedPointerEvent, Sprite, Texture } from 'pixi.js'
 import { CardSprite } from './CardSprite';
 import type { TableSprite } from './TableSprite';
 import type { TableEngine } from '../TableEngine';
 import type { TableStateEntity } from '../TableState';
+import { randomId } from '../util/Utilities';
 
 // Sprite representing a pile of cards.
 // Contains card backgrounds and CardSprites as necessary
@@ -83,5 +83,49 @@ export class PileSprite extends Sprite implements TableSprite {
             topHalfPileSprite.draw(tableEngine);
         }
         return;
+    }
+
+    public onDragRelease(table: TableEngine, _event: FederatedPointerEvent) {
+        table.tableNetwork.tableCall({
+            methodName: "moveCards",
+            opts: {
+                playerId: table.tableNetwork.myself.id,
+                toId: this.id
+            }
+        });
+    }
+
+    public onTapRelease(table: TableEngine,
+                        _event: FederatedPointerEvent,
+                        previouslyGrabbed: boolean,
+                        _index: number) {
+        console.log("in PileSprite's onTapRelease")
+        if (previouslyGrabbed) {
+            table.tableNetwork.tableCall({
+                methodName: "release",
+                opts: {
+                    playerId: table.tableNetwork.myself.id,
+                }
+            });
+        } else {
+            console.log("in PileSprite's onTapRelease re-grabbing successfully")
+
+            const globalPos = table.fromScreenToWorldPosition(this.toGlobal({x: 0, y: 0}));
+            table.tableNetwork.committedTableCall({
+                methodName: "grab",
+                opts: {
+                    playerId: table.tableNetwork.myself.id,
+                    newId: randomId(),
+                    fromId: this.id,
+                    initialWorldX: globalPos.worldX,
+                    initialWorldY: globalPos.worldY,
+                    selecting: true
+                }
+            });
+        }
+    }
+
+    public onInitialMove(table: TableEngine, event: FederatedPointerEvent) {
+        
     }
 }

@@ -5,16 +5,21 @@ import type { Card } from "./models/Card";
 import { Hand } from "./models/Hand";
 import { LooseCards } from "./models/LooseCards";
 import { Pile } from "./models/Pile";
+import { mulberry32 } from "./util/Utilities";
 
 export type TableEntityType = "pile" | "hand" | "loose";
 
 export interface TableStateEntity {
     type: TableEntityType;
-    cards: Card[]; 
+    cards: Card[];
 }
 
 export interface TableStateOpts {
     playerId: string;
+}
+
+export interface SelectOpts extends TableStateOpts {
+    indices: number[];
 }
 
 export interface TableCommitStateOpts extends TableStateOpts {
@@ -26,6 +31,7 @@ export interface GrabOpts extends TableCommitStateOpts {
     newId: string;
     initialWorldX: number;
     initialWorldY: number;
+    selecting?: boolean;
 }
 
 export interface ContractGrabOpts extends TableStateOpts {
@@ -52,6 +58,7 @@ export interface AddHandOpts extends TableStateOpts {}
 
 export interface MoveCardsOpts extends TableStateOpts {
     toId: string;
+    insertAt?: number;
 }
 
 export interface MoveCardsToNewPileOpts extends TableStateOpts {
@@ -65,7 +72,9 @@ export interface GrabbedCardPositionOpts extends TableStateOpts {
     worldY: number;
 }
 
-export interface ReorderCardsOpts extends TableStateOpts {}
+export interface ShuffleCardsOpts extends TableStateOpts {
+    seed: number;
+}
 
 export type TableFunction = (opt: TableStateOpts) => void;
 
@@ -80,41 +89,78 @@ export class TableState {
     // Map from entityId to their types
     public entities: Map<string, TableStateEntity> = new Map();
     // Map from player ID to the entityId they are currently grabbing
-    public grabbed: Map<string, string> = new Map();
+    public grabbing: Map<string, TableCommitStateOpts> = new Map();
 
     // Actions which need to be conflict-resolved by TableNetwork before writing to state.
     public commit: TableCommitState = {
         // Grabs entities for a given player. Until release is called, this is assumed to be
         // the source of any cards we're moving. If grab is called for a player who's already grabbing something,
         // release the existing grab before re-grabbing.
+        // If the `selecting` flag is on, we do not create a LooseCards entity.
         grab: (opts: GrabOpts) => {
-            if (this.grabbed.has(opts.playerId)) {
+            if (this.grabbing.has(opts.playerId)) {
                 this.release(opts);
+            }
+            for (let grabs of this.grabbing.values()) {
+                if (grabs.fromId === opts.fromId) {
+                    return;
+                }
             }
             const from = this.entities.get(opts.fromId);
             if (from) {
                 if (opts.indices) {
-                    const cards = [];
-                    // Iterate through indices in reverse order
-                    for (let i = opts.indices.length - 1; i >= 0; i--) {
-                        let fromCard = from.cards[opts.indices[i]!];
-                        if (fromCard) {
-                            cards.unshift(fromCard);
-                            from.cards.splice(opts.indices[i]!, 1);
+                    if (opts.selecting) {
+                        // Grab entire existing deck without spawning LooseCards,
+                        // specifying selected indices
+                        this.grabbing.set(opts.playerId, {
+                            playerId: opts.playerId,
+                            fromId: opts.fromId,
+                            indices: opts.indices
+                        });
+                        if (this.onGrab) {
+                            this.onGrab(opts, this.entities.get(opts.fromId)!);
                         }
-                    }
-                    if (from.type !== "hand" && from.cards.length === 0) {
-                        this.entities.delete(opts.fromId);
-                    }
-                    const loose = new LooseCards(opts, cards, opts.initialWorldX, opts.initialWorldY);
-                    this.grabbed.set(opts.playerId, opts.newId);
-                    this.entities.set(opts.newId, loose);
-                    if (this.onGrab && this.entities.has(opts.newId)) {
-                        this.onGrab(opts, this.entities.get(opts.newId)!);
-                    }
+                    } else {
+                        const cards = [];
+                        // Iterate through indices in reverse order
+                        for (let i = opts.indices.length - 1; i >= 0; i--) {
+                            let fromCard = from.cards[opts.indices[i]!];
+                            if (fromCard) {
+                                cards.unshift(fromCard);
+                                from.cards.splice(opts.indices[i]!, 1);
+                            }
+                        }
+                        if (from.type !== "hand" && from.cards.length === 0) {
+                            this.entities.delete(opts.fromId);
+                        }
+                        const loose = new LooseCards(opts, cards, opts.initialWorldX, opts.initialWorldY);
+                        this.grabbing.set(opts.playerId, {
+                            playerId: opts.playerId,
+                            fromId: opts.newId
+                        });
+                        this.entities.set(opts.newId, loose);
+                        if (this.onGrab && this.entities.has(opts.newId)) {
+                            this.onGrab(opts, this.entities.get(opts.newId)!);
+                        }
+                    }  
                 } else {
-                    // Grab entire existing deck without spawning LooseCards
-                    this.grabbed.set(opts.playerId, opts.fromId);
+                    // Grab all cards without spawning LooseCards
+                    if (opts.selecting) {
+                        this.grabbing.set(opts.playerId, {
+                            playerId: opts.playerId,
+                            fromId: opts.fromId
+                        });
+                    } else {
+                    // Grab all cards by spawning LooseCards 
+                        const loose = new LooseCards(opts, from.cards, opts.initialWorldX, opts.initialWorldY);
+                        this.entities.delete(opts.fromId);
+                        this.entities.set(opts.newId, loose);
+                        this.grabbing.set(opts.playerId, {
+                            playerId: opts.playerId,
+                            fromId: opts.newId
+                        })
+                    }
+                    
                     if (this.onGrab) {
                         this.onGrab(opts, this.entities.get(opts.fromId)!);
                     }
@@ -124,12 +170,26 @@ export class TableState {
         }
     }
 
+    public select(opts: SelectOpts) {
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab && this.entities.has(grab.fromId)) {
+            this.grabbing.set(opts.playerId, {
+                playerId: grab.playerId,
+                fromId: grab.fromId,
+                indices: opts.indices
+            })
+            if (this.onSelect) {
+                this.onSelect(opts, this.entities.get(grab.fromId)!)
+            }
+        }
+    }
+
     // Allows a player already holding some hand/deck to "contract" their grabbed cards down by selecting
     // a specific subset.
     public contractGrab(opts: ContractGrabOpts) {
-        const fromId = this.grabbed.get(opts.playerId);
-        if (fromId) {
-            const from = this.entities.get(fromId);
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab) {
+            const from = this.entities.get(grab.fromId);
             const cards = [];
             if (from) {
                 // Iterate through indices in reverse order
@@ -141,13 +201,16 @@ export class TableState {
                     }
                 }
                 if ((from.type !== "hand") && from.cards.length === 0) {
-                    this.entities.delete(fromId);
+                    this.entities.delete(grab.fromId);
                 }
                 const loose = new LooseCards({
                     ...opts,
-                    fromId: fromId
+                    fromId: grab.fromId
                 }, cards, opts.initialWorldX, opts.initialWorldY);
-                this.grabbed.set(opts.playerId, opts.newId);
+                this.grabbing.set(opts.playerId, {
+                    playerId: opts.playerId,
+                    fromId: opts.newId
+                });
                 this.entities.set(opts.newId, loose);
             }
         }
@@ -155,15 +218,23 @@ export class TableState {
 
     // Moves cards from one hand/deck to another.
     public moveCards(opts: MoveCardsOpts) {
-        const fromId = this.grabbed.get(opts.playerId);
-        if (fromId) {
-            const from = this.entities.get(fromId);
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab) {
+            const from = this.entities.get(grab.fromId);
             const to = this.entities.get(opts.toId);
-            if (from && to && from !== to && (from.type !== "hand")) {
-                to.cards.unshift(...from.cards);
-                this.entities.delete(fromId);
+            if (from && to && from !== to) {
+                if (opts.insertAt) {
+                    to.cards.splice(opts.insertAt, 0, ...from.cards);
+                } else {
+                    to.cards.unshift(...from.cards);
+                }
+                if (from.type !== "hand") {
+                    this.entities.delete(grab.fromId);
+                } else {
+                    from.cards = [];
+                }
             }
-            this.grabbed.delete(opts.playerId);
+            this.grabbing.delete(opts.playerId);
             if (this.onMoveCards) {
                 this.onMoveCards(opts);
             }
@@ -171,17 +242,19 @@ export class TableState {
     }
 
     public moveCardsToNewPile(opts: MoveCardsToNewPileOpts) {
-        const fromId = this.grabbed.get(opts.playerId);
-        if (fromId) {
-            const from = this.entities.get(fromId);
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab) {
+            const from = this.entities.get(grab.fromId);
             if (from) {
                 const newPile = new Pile(opts.gridX, opts.gridY, from.cards);
                 this.entities.set(opts.newId, newPile);
                 if (from.type !== "hand") {
-                    this.entities.delete(fromId);
+                    this.entities.delete(grab.fromId);
+                } else {
+                    from.cards = [];
                 }
             }
-            this.grabbed.delete(opts.playerId);
+            this.grabbing.delete(opts.playerId);
             if (this.onMoveCardsToNewPile) {
                 this.onMoveCardsToNewPile(opts);
             }
@@ -202,9 +275,9 @@ export class TableState {
     }
 
     public grabbedCardPosition(opts: GrabbedCardPositionOpts) {
-        const grabbedEntityId = this.grabbed.get(opts.playerId);
-        if (grabbedEntityId) {
-            const grabbedEntity = this.entities.get(grabbedEntityId);
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab) {
+            const grabbedEntity = this.entities.get(grab.fromId);
             // Only valid for LooseCards
             if (grabbedEntity && LooseCards.isLooseCards(grabbedEntity)) {
                 grabbedEntity.worldX = opts.worldX;
@@ -216,24 +289,50 @@ export class TableState {
         }
     }
 
-    public reorderCards(opts: ReorderCardsOpts) {
-
+    public shuffleCards(opts: ShuffleCardsOpts) {
+        const rand = mulberry32(opts.seed);
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab) {
+            const from = this.entities.get(grab.fromId);
+            if (from) {
+                for (let i = from.cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(rand() * (i + 1));
+                    [from.cards[j], from.cards[i]] = [from.cards[i]!, from.cards[j]!];
+                }
+                if (this.onShuffleCards) {
+                    this.onShuffleCards(opts);
+                }
+            }
+        }
     }
 
     public flipCards(opts: FlipCardOpts) {
-        const grabbedEntityId = this.grabbed.get(opts.playerId);
-        if (grabbedEntityId) {
-            const from = this.entities.get(grabbedEntityId);
+        const grab = this.grabbing.get(opts.playerId);
+        if (grab) {
+            const from = this.entities.get(grab.fromId);
             if (from) {
-                for (let card of from.cards) {
-                    card.faceUp = !card.faceUp;
-                }
-                // If the cards are being flipped "together", we need to reverse the order of the cards
+                if (grab.indices) {
+                    for (let index of grab.indices) {
+                        const card = from.cards[index];
+                        if (card) {
+                            card.faceUp = !card.faceUp;
+                        }
+                    }
+                } else {
+                    for (let card of from.cards) {
+                        card.faceUp = !card.faceUp;
+                    }
+                }        
+                // If the cards are being flipped "together", reverse the order of the cards
                 if (opts.together) {
-                    from.cards.reverse();
+                    if (grab.indices) {
+                        // I'll implement this when actually needed
+                    } else {
+                        from.cards.reverse();
+                    }
                 }
                 if (this.onFlipCards) {
-                    this.onFlipCards(opts, grabbedEntityId, from);
+                    this.onFlipCards(opts, grab.fromId, from, grab.indices);
                 }
             }
         }
@@ -241,9 +340,9 @@ export class TableState {
 
     // Called when a grabbed card is released without ending up somewhere else
     public release(opts: ReleaseOpts) {
-        const releasedId = this.grabbed.get(opts.playerId);
-        if (releasedId) {
-            const released = this.entities.get(releasedId);
+        const release = this.grabbing.get(opts.playerId);
+        if (release) {
+            const released = this.entities.get(release.fromId);
             // Return our "borrowed" cards
             if (released && LooseCards.isLooseCards(released)) {
                 const returnToId = released.from.fromId;
@@ -254,14 +353,14 @@ export class TableState {
                         returnTo.cards.splice(returnInd, 0, released.cards[i]!);
                     }
                     // Only delete if we've replaced cards to their returnTo
-                    this.entities.delete(releasedId);
+                    this.entities.delete(release.fromId);
                 } else if (returnTo) {
                     returnTo.cards = released.cards;
                     // Only delete if we've replaced cards to their returnTo
-                    this.entities.delete(releasedId);
+                    this.entities.delete(release.fromId);
                 }
             }
-            this.grabbed.delete(opts.playerId);
+            this.grabbing.delete(opts.playerId);
             if (this.onRelease) {
                 this.onRelease(opts);
             }
@@ -278,9 +377,13 @@ export class TableState {
 
     public onAddHand?: (opts: AddHandOpts) => void;
 
+    public onShuffleCards?: (opts: ShuffleCardsOpts) => void;
+
     public onGrabbedCardPosition?: (opts: GrabbedCardPositionOpts) => void;
 
-    public onFlipCards?: (opts: FlipCardOpts, grabbedEntityId: string, grabbedEntity: TableStateEntity) => void;
+    public onFlipCards?: (opts: FlipCardOpts, grabbedEntityId: string, grabbedEntity: TableStateEntity, indices?: number[]) => void;
 
     public onRelease?: (opts: ReleaseOpts) => void;
+
+    public onSelect?: (opts: SelectOpts, entity: TableStateEntity) => void;
 }

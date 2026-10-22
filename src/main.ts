@@ -40,7 +40,7 @@ const appContainerElem: HTMLElement = document.getElementById("appContainer")!;
         console.log("Entities: ");
         console.log(tableEngine.tableState.entities);
         console.log("Grabbed: ");
-        console.log(tableEngine.tableState.grabbed);
+        console.log(tableEngine.tableState.grabbing);
     }, 3000)
 })();
 

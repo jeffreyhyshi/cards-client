@@ -1,4 +1,4 @@
-import { Container, NineSliceSprite, Texture } from "pixi.js";
+import { Container, FederatedPointerEvent, NineSliceSprite, Texture } from "pixi.js";
 import type { TableSprite } from "./TableSprite";
 import type { TableShell } from "../TableShell";
 import type { Hand } from "../models/Hand";
@@ -67,8 +67,21 @@ export class OtherHandSprite extends Container implements TableSprite {
         } else {
             this.barNineSliceSprite.x = -10;
             this.barNineSliceSprite.y = 0;
-        }
-        
+        } 
+    }
+
+    public onDragRelease(table: TableEngine, _event: FederatedPointerEvent) {
+        table.tableNetwork.tableCall({
+            methodName: "moveCards",
+            opts: {
+                playerId: table.tableNetwork.myself.id,
+                toId: this.id
+            }
+        });
+    }
+
+    public getCardSprite(index: number): CardSprite | undefined {
+        return this.cardSprites[index];
     }
 
     private sizedSprite(id: string, card: Card): CardSprite {
@@ -95,9 +108,5 @@ export class OtherHandSprite extends Container implements TableSprite {
             return 30;
         }
         return 0; // Unreachable
-    }
-
-    public getCardSprite(index: number): CardSprite | undefined {
-        return this.cardSprites[index];
     }
 }
