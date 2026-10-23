@@ -295,12 +295,13 @@ export class TableState {
         if (grab) {
             const from = this.entities.get(grab.fromId);
             if (from) {
+                const old = [...from.cards];
                 for (let i = from.cards.length - 1; i > 0; i--) {
                     const j = Math.floor(rand() * (i + 1));
                     [from.cards[j], from.cards[i]] = [from.cards[i]!, from.cards[j]!];
                 }
                 if (this.onShuffleCards) {
-                    this.onShuffleCards(opts);
+                    this.onShuffleCards(opts, grab.fromId, from, old);
                 }
             }
         }
@@ -377,7 +378,7 @@ export class TableState {
 
     public onAddHand?: (opts: AddHandOpts) => void;
 
-    public onShuffleCards?: (opts: ShuffleCardsOpts) => void;
+    public onShuffleCards?: (opts: ShuffleCardsOpts, grabbedEntityId: string, grabbedEntity: TableStateEntity, prevDeck: Card[]) => void;
 
     public onGrabbedCardPosition?: (opts: GrabbedCardPositionOpts) => void;
 

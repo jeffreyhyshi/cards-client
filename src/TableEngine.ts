@@ -1,5 +1,5 @@
 import { Container, FederatedPointerEvent, Point, TilingSprite, type Application } from "pixi.js";
-import { TableState, type FlipCardOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type TableStateEntity } from "./TableState";
+import { TableState, type FlipCardOpts, type GrabOpts, type MoveCardsOpts, type MoveCardsToNewPileOpts, type ReleaseOpts, type ShuffleCardsOpts, type TableStateEntity } from "./TableState";
 import { TableNetwork } from "./TableNetwork";
 import type { TableSprite } from "./sprites/TableSprite";
 import type { CardSprite } from "./sprites/CardSprite";
@@ -16,6 +16,8 @@ import type { TableAnimation } from "./animation/TableAnimation";
 import { PileCardFlipAnimation } from "./animation/PileCardFlipAnimation";
 import 'pixi.js/math-extras';
 import { HandCardFlipAnimation } from "./animation/HandCardFlipAnimation";
+import type { Card } from "./models/Card";
+import { PileShuffleAnimation } from "./animation/PileShuffleAnimation";
 
 interface RenderContainers {
     // Table layer
@@ -190,6 +192,12 @@ export class TableEngine {
                 this.animationQueue.push(new PileCardFlipAnimation(this, grabbedEntityId))
             } else if (Hand.isHand(grabbedEntity) && indices) {
                 this.animationQueue.push(new HandCardFlipAnimation(grabbedEntityId, indices));
+            }
+        }
+        this.tableState.onShuffleCards = (opts: ShuffleCardsOpts, grabbedEntityId: string,
+            grabbedEntity: TableStateEntity, prevDeck: Card[]) => {
+            if (Pile.isPile(grabbedEntity) || LooseCards.isLooseCards(grabbedEntity)) {
+                this.animationQueue.push(new PileShuffleAnimation(grabbedEntityId, prevDeck));
             }
         }
     }
